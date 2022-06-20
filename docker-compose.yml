@@ -11,7 +11,7 @@ services:
 
   webprotege:
     container_name: webprotege
-    image: protegeproject/webprotege
+    image: webprotege-export-neo4j
     depends_on:
       - wpmongo
     restart: unless-stopped

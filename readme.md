@@ -38,29 +38,24 @@ To build WebProtégé from source
 
 1) Clone the github repository
    ```
-   git clone https://github.com/protegeproject/webprotege.git
+   git clone https://github.com/woschmid/webprotege-export-neo4j.git
    ```
 2) Open a terminal in the directory where you clone the repository to
 3) Use maven to package WebProtégé
    ```
    mvn clean package
    ```
-5) The WebProtege .war file will be built into the webprotege-server directory
+4) The WebProtege .war file will be built into the webprotege-server directory
 
-Running from Maven
-------------------
+Building Docker container
+-------------------------
 
-To run WebProtégé in SuperDev Mode using maven
+The following command creates a local docker image instance with the name webprotege-export-neo4j which then can be used
+to run from Docker (next section). This build process requires 10 - 30 minutes!
 
-1) Start the GWT code server in one terminal window
-    ```
-    mvn gwt:codeserver
-    ```
-2) In a different terminal window start the tomcat server
-    ```
-    mvn -Denv=dev tomcat7:run
-    ```
-3) Browse to WebProtégé in a Web browser by navigating to [http://localhost:8080](http://localhost:8080)
+   ```bash
+   docker build -t webprotege-export-neo4j --build-arg WEBPROTEGE_VERSION=5.0.0-SNAPSHOT .
+   ```
 
 Running from Docker
 -------------------
@@ -95,3 +90,19 @@ Sharing the volumes used by the WebProtégé app and MongoDB allow to keep persi
 * MongoDB will store its data in the source code folder at `./.protegedata/mongodb` where you run `docker-compose`
 
 > Path to the shared volumes can be changed in the `docker-compose.yml` file.
+
+
+Running from Maven
+------------------
+
+To run WebProtégé in SuperDev Mode using maven
+
+1) Start the GWT code server in one terminal window
+    ```
+    mvn gwt:codeserver
+    ```
+2) In a different terminal window start the tomcat server
+    ```
+    mvn -Denv=dev tomcat7:run
+    ```
+3) Browse to WebProtégé in a Web browser by navigating to [http://localhost:8080](http://localhost:8080)
