@@ -42,7 +42,7 @@ public class AvailableProjectPresenter {
     private final DownloadProjectRequestHandler downloadProjectRequestHandler;
 
     @Nonnull
-    private LoadProjectInNewWindowRequestHandler loadProjectInNewWindowRequestHandler;
+    private final LoadProjectInNewWindowRequestHandler loadProjectInNewWindowRequestHandler;
 
     @Inject
     public AvailableProjectPresenter(@Nonnull AvailableProject project,
@@ -108,6 +108,18 @@ public class AvailableProjectPresenter {
         addOpenInNewWindowAction();
         addDowloadAction();
         addTrashAction();
+        addExport2Neo4jAction();
+    }
+
+    private void addExport2Neo4jAction() {
+        AbstractUiAction exportAction = new AbstractUiAction("Export to Neo4j ... ") {
+            @Override
+            public void execute() {
+                downloadProjectRequestHandler.handleProjectDownloadRequest(project.getProjectId()); // TODO use appropriate RequestHandler and Servlet
+            }
+        };
+        exportAction.setEnabled(project.isDownloadable());
+        view.addAction(exportAction);
     }
 
     private void addOpenAction() {

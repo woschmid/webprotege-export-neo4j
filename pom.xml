@@ -135,6 +135,13 @@
                 <version>2.7.0</version>
             </dependency>
 
+            <!-- Necessary dependency for establishing connections with local or remote Neo4J instance -->
+            <dependency>
+                <groupId>org.neo4j.driver</groupId>
+                <artifactId>neo4j-java-driver</artifactId>
+                <version>4.4.5</version>
+            </dependency>
+
             <!-- Testing Dependencies -->
 
             <dependency>

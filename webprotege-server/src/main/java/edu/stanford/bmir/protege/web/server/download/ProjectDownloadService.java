@@ -10,6 +10,9 @@ import edu.stanford.bmir.protege.web.shared.inject.ApplicationSingleton;
 import edu.stanford.bmir.protege.web.shared.project.ProjectId;
 import edu.stanford.bmir.protege.web.shared.revision.RevisionNumber;
 import edu.stanford.bmir.protege.web.shared.user.UserId;
+import org.neo4j.driver.*;
+import org.neo4j.driver.Record;
+import org.neo4j.driver.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,7 +22,11 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -28,6 +35,7 @@ import java.util.concurrent.locks.Lock;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.neo4j.driver.Values.parameters;
 
 /**
  * Matthew Horridge
@@ -162,6 +170,10 @@ public class ProjectDownloadService {
                                       @Nonnull Path downloadSource,
                                       @Nonnull HttpServletResponse response) {
 
+
+        // test connection to neo4j
+        testNeo4jConnection();
+
         String fileName = getClientSideFileName(projectId, revisionNumber, downloadFormat);
         FileTransferTask task = new FileTransferTask(projectId,
                                                      userId,
@@ -180,6 +192,50 @@ public class ProjectDownloadService {
                         Optional.ofNullable(e.getCause()).map(Throwable::getMessage).orElse(""),
                         e.getCause());
         }
+    }
+
+    private void testNeo4jConnection() {
+        Driver driver = GraphDatabase.driver( "bolt://neo4j:7687", AuthTokens.basic( "neo4j", "test" ) );
+        Session session = driver.session();
+        String resultMessage = session.writeTransaction(tx -> {
+            // Result result = tx.run("LOAD CSV FROM 'https://data.neo4j.com/bands/artists.csv'");
+            // Result result = tx.run("MATCH (n) RETURN n");
+
+            SimpleDateFormat formatter= new SimpleDateFormat("yyyy-MM-dd 'at' HH:mm:ss z");
+            Date date = new Date(System.currentTimeMillis());
+            String currentTimeStamp = formatter.format(date);
+
+            String cypherQuery = "CREATE (n:Person {name: '" + getRandomName() + "', title: '" + getRandomTitle() + "', createdAt: '" + currentTimeStamp + "'}) RETURN n.name, n.title, n.createdAt";
+
+            Result result = tx.run(cypherQuery);
+            List<org.neo4j.driver.Record> l = result.list();
+            if (!l.isEmpty()) {
+                StringBuilder sb = new StringBuilder("Created node: ");
+                for (Record record : l) {
+                    for (Pair<String, Value> field : record.fields()) {
+                        sb.append('[').append(field.key()).append(',').append(field.value()).append(']');
+                    }
+                }
+
+                return sb.toString();
+            } else {
+                return "No Result";
+            }
+        });
+        logger.info("Successfully connected to Neo4j and created node: " + resultMessage);
+        driver.close();
+    }
+
+    private static String getRandomName() {
+        final String[] names = {"Andy", "Bob", "Cindy", "Doug", "Eli", "Frank", "Gabi"};
+        int rndIdx = new Random().nextInt(names.length);
+        return names[rndIdx];
+    }
+
+    private static String getRandomTitle() {
+        final String[] titles = {"Actor", "Baker", "Chancellor", "Doctor", "Engineer", "Factoryworker"};
+        int rndIdx = new Random().nextInt(titles.length);
+        return titles[rndIdx];
     }
 
     private String getClientSideFileName(ProjectId projectId, RevisionNumber revision, DownloadFormat downloadFormat) {

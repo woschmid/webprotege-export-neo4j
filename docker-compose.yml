@@ -9,6 +9,22 @@ services:
     volumes: 
       - ./.protegedata/mongodb:/data/db
 
+  neo4j:
+    container_name: neo4j
+    image: neo4j
+    ports:
+      - '7474:7474'
+    #  - '7473:7473'
+      - '7687:7687'
+    volumes:
+      - ./.neo4j/data:/data
+      - ./.neo4j/logs:/logs
+      - ./.neo4j/import:/import
+      - ./.neo4j/plugins:/plugins
+    environment:
+      NEO4J_AUTH: neo4j/test
+      NEO4JLABS_PLUGINS: '["n10s"]'
+
   webprotege:
     container_name: webprotege
     image: webprotege-export-neo4j
