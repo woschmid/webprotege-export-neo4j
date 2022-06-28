@@ -2,17 +2,14 @@ package edu.stanford.bmir.protege.web.server.download;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.Striped;
-import edu.stanford.bmir.protege.web.server.app.ApplicationNameSupplier;
 import edu.stanford.bmir.protege.web.server.project.ProjectDetailsManager;
-import edu.stanford.bmir.protege.web.server.project.ProjectManager;
 import edu.stanford.bmir.protege.web.server.revision.HeadRevisionNumberFinder;
 import edu.stanford.bmir.protege.web.shared.inject.ApplicationSingleton;
 import edu.stanford.bmir.protege.web.shared.project.ProjectId;
 import edu.stanford.bmir.protege.web.shared.revision.RevisionNumber;
 import edu.stanford.bmir.protege.web.shared.user.UserId;
 import org.neo4j.driver.*;
-import org.neo4j.driver.Record;
-import org.neo4j.driver.util.Pair;
+import org.neo4j.driver.internal.value.NullValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,8 +19,6 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
@@ -35,7 +30,6 @@ import java.util.concurrent.locks.Lock;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.neo4j.driver.Values.parameters;
 
 /**
  * Matthew Horridge
@@ -194,6 +188,7 @@ public class ProjectDownloadService {
         }
     }
 
+/*
     private void testNeo4jConnection() {
         Driver driver = GraphDatabase.driver( "bolt://neo4j:7687", AuthTokens.basic( "neo4j", "test" ) );
         Session session = driver.session();
@@ -211,11 +206,9 @@ public class ProjectDownloadService {
             List<org.neo4j.driver.Record> l = result.list();
             if (!l.isEmpty()) {
                 StringBuilder sb = new StringBuilder("Created node: ");
-                for (Record record : l) {
-                    for (Pair<String, Value> field : record.fields()) {
+                for (Record record : l)
+                    for (Pair<String, Value> field : record.fields())
                         sb.append('[').append(field.key()).append(',').append(field.value()).append(']');
-                    }
-                }
 
                 return sb.toString();
             } else {
@@ -224,6 +217,69 @@ public class ProjectDownloadService {
         });
         logger.info("Successfully connected to Neo4j and created node: " + resultMessage);
         driver.close();
+    }
+*/
+
+    private void testNeo4jConnection() {
+        String uri = "bolt://neo4j:7687";
+        Driver driver = GraphDatabase.driver( uri, AuthTokens.basic( "neo4j", "test" ) );
+        Session session = driver.session();
+
+        if (! doesUniquenessConstraintExist(session)) {
+            session.writeTransaction(tx -> {
+                Result result = tx.run("CREATE CONSTRAINT n10s_unique_uri ON (r:Resource) ASSERT r.uri IS UNIQUE");
+                return "";
+            });
+        }
+
+        if (! doesGraphConfigExist(session)) {
+            session.writeTransaction(tx -> {
+                Result result = tx.run("CALL n10s.graphconfig.init()");
+                return "";
+            });
+        }
+
+        session.writeTransaction(tx -> {
+            Result result = tx.run("CALL n10s.rdf.import.fetch(\"http://webprotege:8080/koala.ttl\",\"Turtle\");");
+            return "";
+        });
+
+
+        //logger.info("Successfully connected to Neo4j and created node: " + resultMessage);
+        driver.close();
+    }
+
+    private boolean doesGraphConfigExist(Session session) {
+        return session.writeTransaction(tx -> {
+            Result result = tx.run("CALL n10s.graphconfig.show()");
+            List<Record> l = result.list();
+            return !l.isEmpty();
+        });
+    }
+
+    /**
+     * Checks if the uniqueness constraint which is necessary for NeoSemantics is already declared or not.
+     * @param session A session.
+     * @return <code>true</code> if constraint already exists, otherwise <code>false</code>.
+     */
+    private boolean doesUniquenessConstraintExist(Session session) {
+        return session.writeTransaction(tx -> {
+            Result result = tx.run("CALL db.constraints()");
+
+            List<Record> l = result.list();
+            if (!l.isEmpty()) {
+                for (Record record : l) {
+                    final Value description = record.get("description");
+                    if (!NullValue.NULL.equals(description)) {
+                        if (description.asString().equalsIgnoreCase("CONSTRAINT ON ( resource:Resource ) ASSERT (resource.uri) IS UNIQUE"))
+                            return true;
+                    }
+                }
+                return false;
+            } else {
+                return false;
+            }
+        });
     }
 
     private static String getRandomName() {
