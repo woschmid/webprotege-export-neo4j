@@ -54,4 +54,14 @@ public class ProjectRevisionDownloader {
         Window.open(downloadURL, "Download ontology", "");
     }
 
+    public void export() {
+        String encodedProjectName = URL.encode(projectId.getId());
+        String baseURL = GWT.getHostPageBaseURL();
+        String downloadURL = baseURL + "export?"
+                + PROJECT + "=" + encodedProjectName  +
+                "&" + REVISION + "=" + revisionNumber.getValue() +
+                "&" + FORMAT + "=" + formatExtension.getExtension();
+        Window.open(downloadURL, "Export ontology", "");
+    }
+
 }

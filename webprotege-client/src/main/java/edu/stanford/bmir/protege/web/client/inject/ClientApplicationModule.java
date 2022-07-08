@@ -28,7 +28,6 @@ import edu.stanford.bmir.protege.web.client.entity.DeprecatedEntitiesView;
 import edu.stanford.bmir.protege.web.client.entity.DeprecatedEntitiesViewImpl;
 import edu.stanford.bmir.protege.web.client.filter.FilterView;
 import edu.stanford.bmir.protege.web.client.filter.FilterViewImpl;
-import edu.stanford.bmir.protege.web.client.form.*;
 import edu.stanford.bmir.protege.web.client.help.*;
 import edu.stanford.bmir.protege.web.client.issues.CommentedEntitiesView;
 import edu.stanford.bmir.protege.web.client.issues.CommentedEntitiesViewImpl;
@@ -245,6 +244,11 @@ public class ClientApplicationModule {
 
     @Provides
     DownloadProjectRequestHandler provideDownloadProjectRequestHandler(DownloadProjectRequestHandlerImpl impl) {
+        return impl;
+    }
+
+    @Provides
+    ExportProjectRequestHandler provideExportProjectRequestHandler(ExportProjectRequestHandlerImpl impl) {
         return impl;
     }
 

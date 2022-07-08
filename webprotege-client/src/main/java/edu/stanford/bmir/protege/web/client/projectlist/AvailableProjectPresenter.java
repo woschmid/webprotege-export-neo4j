@@ -3,10 +3,7 @@ package edu.stanford.bmir.protege.web.client.projectlist;
 import com.google.auto.factory.AutoFactory;
 import com.google.auto.factory.Provided;
 import edu.stanford.bmir.protege.web.client.action.AbstractUiAction;
-import edu.stanford.bmir.protege.web.client.projectmanager.DownloadProjectRequestHandler;
-import edu.stanford.bmir.protege.web.client.projectmanager.LoadProjectInNewWindowRequestHandler;
-import edu.stanford.bmir.protege.web.client.projectmanager.LoadProjectRequestHandler;
-import edu.stanford.bmir.protege.web.client.projectmanager.TrashManagerRequestHandler;
+import edu.stanford.bmir.protege.web.client.projectmanager.*;
 import edu.stanford.bmir.protege.web.shared.TimeUtil;
 import edu.stanford.bmir.protege.web.shared.project.AvailableProject;
 import edu.stanford.bmir.protege.web.shared.project.ProjectId;
@@ -42,6 +39,9 @@ public class AvailableProjectPresenter {
     private final DownloadProjectRequestHandler downloadProjectRequestHandler;
 
     @Nonnull
+    private final ExportProjectRequestHandler exportProjectRequestHandler;
+
+    @Nonnull
     private final LoadProjectInNewWindowRequestHandler loadProjectInNewWindowRequestHandler;
 
     @Inject
@@ -50,13 +50,15 @@ public class AvailableProjectPresenter {
                                      @Provided @Nonnull LoadProjectInNewWindowRequestHandler loadProjectInNewWindowRequestHandler,
                                      @Provided @Nonnull TrashManagerRequestHandler trashManagerRequestHandler,
                                      @Provided @Nonnull LoadProjectRequestHandler loadProjectRequestHandler,
-                                     @Provided @Nonnull DownloadProjectRequestHandler downloadProjectRequestHandler) {
+                                     @Provided @Nonnull DownloadProjectRequestHandler downloadProjectRequestHandler,
+                                     @Provided @Nonnull ExportProjectRequestHandler exportProjectRequestHandler) {
         this.view = checkNotNull(view);
         this.project = checkNotNull(project);
         this.loadProjectInNewWindowRequestHandler = checkNotNull(loadProjectInNewWindowRequestHandler);
         this.trashManagerRequestHandler = checkNotNull(trashManagerRequestHandler);
         this.loadProjectRequestHandler = checkNotNull(loadProjectRequestHandler);
         this.downloadProjectRequestHandler = checkNotNull(downloadProjectRequestHandler);
+        this.exportProjectRequestHandler = checkNotNull(exportProjectRequestHandler);
     }
 
     public void start() {
@@ -115,7 +117,8 @@ public class AvailableProjectPresenter {
         AbstractUiAction exportAction = new AbstractUiAction("Export to Neo4j ... ") {
             @Override
             public void execute() {
-                downloadProjectRequestHandler.handleProjectDownloadRequest(project.getProjectId()); // TODO use appropriate RequestHandler and Servlet
+                //downloadProjectRequestHandler.handleProjectDownloadRequest(project.getProjectId()); // TODO use appropriate RequestHandler and Servlet
+                exportProjectRequestHandler.handleProjectExportRequest(project.getProjectId());
             }
         };
         exportAction.setEnabled(project.isDownloadable());

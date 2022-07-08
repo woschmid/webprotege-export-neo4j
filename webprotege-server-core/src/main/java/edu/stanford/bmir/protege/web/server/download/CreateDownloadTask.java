@@ -22,7 +22,7 @@ import java.util.concurrent.Callable;
  * Stanford Center for Biomedical Informatics Research
  * 14 Apr 2017
  */
-class CreateDownloadTask implements Callable<Void> {
+public class CreateDownloadTask implements Callable<Void> {
 
     private static final Logger logger = LoggerFactory.getLogger(CreateDownloadTask.class);
 

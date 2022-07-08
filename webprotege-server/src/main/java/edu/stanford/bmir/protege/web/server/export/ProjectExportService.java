@@ -1,13 +1,16 @@
-package edu.stanford.bmir.protege.web.server.download;
+package edu.stanford.bmir.protege.web.server.export;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.Striped;
+import edu.stanford.bmir.protege.web.server.download.*;
 import edu.stanford.bmir.protege.web.server.project.ProjectDetailsManager;
 import edu.stanford.bmir.protege.web.server.revision.HeadRevisionNumberFinder;
 import edu.stanford.bmir.protege.web.shared.inject.ApplicationSingleton;
 import edu.stanford.bmir.protege.web.shared.project.ProjectId;
 import edu.stanford.bmir.protege.web.shared.revision.RevisionNumber;
 import edu.stanford.bmir.protege.web.shared.user.UserId;
+import org.neo4j.driver.*;
+import org.neo4j.driver.internal.value.NullValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,6 +20,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -33,9 +37,9 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
  * 14 Apr 2017
  */
 @ApplicationSingleton
-public class ProjectDownloadService {
+public class ProjectExportService {
 
-    private static final Logger logger = LoggerFactory.getLogger(ProjectDownloadService.class);
+    private static final Logger logger = LoggerFactory.getLogger(ProjectExportService.class);
 
     @Nonnull
     private final ExecutorService downloadGeneratorExecutor;
@@ -58,11 +62,12 @@ public class ProjectDownloadService {
     private final CreateDownloadTaskFactory createDownloadTaskFactory;
 
     @Inject
-    public ProjectDownloadService(@Nonnull @DownloadGeneratorExecutor ExecutorService downloadGeneratorExecutor,
-                                  @Nonnull @FileTransferExecutor ExecutorService fileTransferExecutor,
-                                  @Nonnull ProjectDetailsManager projectDetailsManager,
-                                  @Nonnull ProjectDownloadCache projectDownloadCache,
-                                  @Nonnull HeadRevisionNumberFinder headRevisionNumberFinder, @Nonnull CreateDownloadTaskFactory createDownloadTaskFactory) {
+    public ProjectExportService(@Nonnull @DownloadGeneratorExecutor ExecutorService downloadGeneratorExecutor,
+                                @Nonnull @FileTransferExecutor ExecutorService fileTransferExecutor,
+                                @Nonnull ProjectDetailsManager projectDetailsManager,
+                                @Nonnull ProjectDownloadCache projectDownloadCache,
+                                @Nonnull HeadRevisionNumberFinder headRevisionNumberFinder,
+                                @Nonnull CreateDownloadTaskFactory createDownloadTaskFactory) {
         this.downloadGeneratorExecutor = checkNotNull(downloadGeneratorExecutor);
         this.fileTransferExecutor = checkNotNull(fileTransferExecutor);
         this.projectDetailsManager = checkNotNull(projectDetailsManager);
@@ -71,7 +76,7 @@ public class ProjectDownloadService {
         this.createDownloadTaskFactory = checkNotNull(createDownloadTaskFactory);
     }
 
-    public void downloadProject(@Nonnull UserId requester,
+    public void exportProject(@Nonnull UserId requester,
                                 @Nonnull ProjectId projectId,
                                 @Nonnull RevisionNumber revisionNumber,
                                 @Nonnull DownloadFormat downloadFormat,
@@ -161,6 +166,8 @@ public class ProjectDownloadService {
                                       @Nonnull HttpServletResponse response) {
 
 
+        // test connection to neo4j
+        testNeo4jConnection();
 
         String fileName = getClientSideFileName(projectId, revisionNumber, downloadFormat);
         FileTransferTask task = new FileTransferTask(projectId,
@@ -182,6 +189,71 @@ public class ProjectDownloadService {
         }
     }
 
+    final static String NEO4JHOST = "neo4j";
+    final static String WEBPROTEGEHOST = "webprotege";
+
+    private void testNeo4jConnection() {
+        String uri = "bolt://"+NEO4JHOST+":7687";
+        Driver driver = GraphDatabase.driver( uri, AuthTokens.basic( "neo4j", "test" ) );
+        Session session = driver.session();
+
+        if (! doesUniquenessConstraintExist(session)) {
+            final String s = session.writeTransaction(tx -> {
+                Result result = tx.run("CREATE CONSTRAINT n10s_unique_uri ON (r:Resource) ASSERT r.uri IS UNIQUE");
+                return result.list().toString();
+            });
+            logger.info("doesUniquenessConstraintExist() -> {}", s);
+        }
+
+        if (! doesGraphConfigExist(session)) {
+            final String s = session.writeTransaction(tx -> {
+                Result result = tx.run("CALL n10s.graphconfig.init()");
+                return result.list().toString();
+            });
+            logger.info("doesGraphConfigExist() -> {}", s);
+        }
+
+        final String s = session.writeTransaction(tx -> {
+            Result result = tx.run("CALL n10s.rdf.import.fetch(\"http://"+WEBPROTEGEHOST+":8080/koala.ttl\",\"Turtle\");");
+            return result.list().toString();
+        });
+        logger.info("Import koala.ttl() -> {}", s);
+
+        driver.close();
+    }
+
+    private boolean doesGraphConfigExist(Session session) {
+        return session.writeTransaction(tx -> {
+            Result result = tx.run("CALL n10s.graphconfig.show()");
+            List<Record> l = result.list();
+            return !l.isEmpty();
+        });
+    }
+
+    /**
+     * Checks if the uniqueness constraint which is necessary for NeoSemantics is already declared or not.
+     * @param session A session.
+     * @return <code>true</code> if constraint already exists, otherwise <code>false</code>.
+     */
+    private boolean doesUniquenessConstraintExist(Session session) {
+        return session.writeTransaction(tx -> {
+            Result result = tx.run("CALL db.constraints()");
+
+            List<Record> l = result.list();
+            if (!l.isEmpty()) {
+                for (Record record : l) {
+                    final Value description = record.get("description");
+                    if (!NullValue.NULL.equals(description))
+                        if (description.asString().equalsIgnoreCase("CONSTRAINT ON ( resource:Resource ) ASSERT (resource.uri) IS UNIQUE"))
+                            return true;
+                }
+                return false;
+            } else {
+                return false;
+            }
+        });
+    }
+
     private String getClientSideFileName(ProjectId projectId, RevisionNumber revision, DownloadFormat downloadFormat) {
         String revisionNumberSuffix;
         if (revision.isHead()) {
@@ -200,7 +272,7 @@ public class ProjectDownloadService {
     }
 
     /**
-     * Shuts down this {@link ProjectDownloadService}.
+     * Shuts down this {@link ProjectExportService}.
      */
     public void shutDown() {
         logger.info("Shutting down Project Download Service");

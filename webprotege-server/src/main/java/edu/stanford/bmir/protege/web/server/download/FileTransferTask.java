@@ -26,7 +26,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
  *
  * A small task that sends a file to the browser/client.
  */
-class FileTransferTask implements Callable<Void> {
+public class FileTransferTask implements Callable<Void> {
 
     private static Logger logger = LoggerFactory.getLogger(FileTransferTask.class);
 
