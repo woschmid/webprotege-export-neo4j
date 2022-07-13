@@ -1,4 +1,4 @@
-package edu.stanford.bmir.protege.web.client.download;
+package edu.stanford.bmir.protege.web.client.export;
 
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.http.client.URL;
@@ -19,7 +19,7 @@ import static edu.stanford.bmir.protege.web.shared.download.ProjectDownloadConst
  *     Downloads a project (possibly a specific revision) by opening a new browser window
  * </p>
  */
-public class ProjectRevisionDownloader {
+public class ProjectRevisionExporter {
 
     private final ProjectId projectId;
 
@@ -34,7 +34,7 @@ public class ProjectRevisionDownloader {
      * @param downloadFormatExtension The format that the project should be downloaded in.  Not {@code null}.
      * @throws  NullPointerException if any parameters are {@code null}.
      */
-    public ProjectRevisionDownloader(ProjectId projectId, RevisionNumber revisionNumber, DownloadFormatExtension downloadFormatExtension) {
+    public ProjectRevisionExporter(ProjectId projectId, RevisionNumber revisionNumber, DownloadFormatExtension downloadFormatExtension) {
         this.projectId = checkNotNull(projectId);
         this.revisionNumber = checkNotNull(revisionNumber);
         this.formatExtension = checkNotNull(downloadFormatExtension);
@@ -44,14 +44,14 @@ public class ProjectRevisionDownloader {
      * Causes a new browser window to be opened which will download the specified project revision in the specified
      * format.
      */
-    public void download() {
+    public void export() {
         String encodedProjectName = URL.encode(projectId.getId());
         String baseURL = GWT.getHostPageBaseURL();
-        String downloadURL = baseURL + "download?"
+        String downloadURL = baseURL + "export?"
                 + PROJECT + "=" + encodedProjectName  +
                 "&" + REVISION + "=" + revisionNumber.getValue() +
                 "&" + FORMAT + "=" + formatExtension.getExtension();
-        Window.open(downloadURL, "Download ontology", "");
+        Window.open(downloadURL, "Export ontology", "");
     }
 
 }

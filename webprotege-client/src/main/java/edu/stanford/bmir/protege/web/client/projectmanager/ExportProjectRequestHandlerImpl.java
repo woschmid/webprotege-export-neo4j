@@ -3,7 +3,7 @@ package edu.stanford.bmir.protege.web.client.projectmanager;
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.core.client.RunAsyncCallback;
 import edu.stanford.bmir.protege.web.client.download.DownloadSettingsDialog;
-import edu.stanford.bmir.protege.web.client.download.ProjectRevisionDownloader;
+import edu.stanford.bmir.protege.web.client.export.ProjectRevisionExporter;
 import edu.stanford.bmir.protege.web.shared.download.DownloadFormatExtension;
 import edu.stanford.bmir.protege.web.shared.project.ProjectId;
 import edu.stanford.bmir.protege.web.shared.revision.RevisionNumber;
@@ -32,7 +32,7 @@ public class ExportProjectRequestHandlerImpl implements ExportProjectRequestHand
 
     private void doDownload(ProjectId projectId, DownloadFormatExtension extension) {
         RevisionNumber head = RevisionNumber.getHeadRevisionNumber();
-        ProjectRevisionDownloader downloader = new ProjectRevisionDownloader(projectId, head, extension);
+        ProjectRevisionExporter downloader = new ProjectRevisionExporter(projectId, head, extension);
         downloader.export();
     }
 }
