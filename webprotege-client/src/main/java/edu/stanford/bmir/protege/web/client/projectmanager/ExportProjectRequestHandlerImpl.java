@@ -25,14 +25,14 @@ public class ExportProjectRequestHandlerImpl implements ExportProjectRequestHand
 
             @Override
             public void onSuccess() {
-                DownloadSettingsDialog.showDialog(extension -> doDownload(projectId, extension));
+                DownloadSettingsDialog.showDialog(extension -> doExport(projectId, extension));
             }
         });
     }
 
-    private void doDownload(ProjectId projectId, DownloadFormatExtension extension) {
+    private void doExport(ProjectId projectId, DownloadFormatExtension extension) {
         RevisionNumber head = RevisionNumber.getHeadRevisionNumber();
-        ProjectRevisionExporter downloader = new ProjectRevisionExporter(projectId, head, extension);
-        downloader.export();
+        ProjectRevisionExporter exporter = new ProjectRevisionExporter(projectId, head, extension);
+        exporter.export();
     }
 }
