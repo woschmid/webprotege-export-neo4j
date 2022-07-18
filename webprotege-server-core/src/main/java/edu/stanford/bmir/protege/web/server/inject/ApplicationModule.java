@@ -26,6 +26,7 @@ import edu.stanford.bmir.protege.web.server.dispatch.impl.ActionHandlerRegistryI
 import edu.stanford.bmir.protege.web.server.dispatch.impl.DispatchServiceExecutorImpl;
 import edu.stanford.bmir.protege.web.server.download.DownloadGeneratorExecutor;
 import edu.stanford.bmir.protege.web.server.download.FileTransferExecutor;
+import edu.stanford.bmir.protege.web.server.export.ExportGeneratorExecutor;
 import edu.stanford.bmir.protege.web.server.form.EntityFormRepository;
 import edu.stanford.bmir.protege.web.server.form.EntityFormRepositoryImpl;
 import edu.stanford.bmir.protege.web.server.form.EntityFormSelectorRepository;
@@ -231,6 +232,21 @@ public class ApplicationModule {
             return thread;
         });
         executorsRegistry.registerService(executor, "Download-Generator-Service");
+        return executor;
+    }
+
+    @Provides
+    @ExportGeneratorExecutor
+    @ApplicationSingleton
+    public ExecutorService provideExportGeneratorExecutorService(ApplicationExecutorsRegistry executorsRegistry) {
+        // Might prove to be too much of a bottle neck.  For now, this limits the memory we need
+        // to generate downloads
+        var executor = Executors.newSingleThreadExecutor(r -> {
+            Thread thread = Executors.defaultThreadFactory().newThread(r);
+            thread.setName(thread.getName().replace("thread", "Export-Generator"));
+            return thread;
+        });
+        executorsRegistry.registerService(executor, "Export-Generator-Service");
         return executor;
     }
 

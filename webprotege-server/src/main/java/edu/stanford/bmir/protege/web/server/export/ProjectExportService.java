@@ -42,7 +42,7 @@ public class ProjectExportService {
     private static final Logger logger = LoggerFactory.getLogger(ProjectExportService.class);
 
     @Nonnull
-    private final ExecutorService downloadGeneratorExecutor;
+    private final ExecutorService exportGeneratorExecutor;
 
     @Nonnull
     private final ExecutorService fileTransferExecutor;
@@ -59,28 +59,29 @@ public class ProjectExportService {
     private final Striped<Lock> lockStripes = Striped.lazyWeakLock(10);
 
     @Nonnull
-    private final CreateDownloadTaskFactory createDownloadTaskFactory;
+    private final CreateExportTaskFactory createExportTaskFactory;
 
     @Inject
-    public ProjectExportService(@Nonnull @DownloadGeneratorExecutor ExecutorService downloadGeneratorExecutor,
+    public ProjectExportService(@Nonnull @ExportGeneratorExecutor ExecutorService exportGeneratorExecutor,
                                 @Nonnull @FileTransferExecutor ExecutorService fileTransferExecutor,
                                 @Nonnull ProjectDetailsManager projectDetailsManager,
                                 @Nonnull ProjectDownloadCache projectDownloadCache,
                                 @Nonnull HeadRevisionNumberFinder headRevisionNumberFinder,
-                                @Nonnull CreateDownloadTaskFactory createDownloadTaskFactory) {
-        this.downloadGeneratorExecutor = checkNotNull(downloadGeneratorExecutor);
+                                @Nonnull CreateExportTaskFactory createExportTaskFactory) {
+        this.exportGeneratorExecutor = checkNotNull(exportGeneratorExecutor);
         this.fileTransferExecutor = checkNotNull(fileTransferExecutor);
         this.projectDetailsManager = checkNotNull(projectDetailsManager);
         this.projectDownloadCache = checkNotNull(projectDownloadCache);
         this.headRevisionNumberFinder = checkNotNull(headRevisionNumberFinder);
-        this.createDownloadTaskFactory = checkNotNull(createDownloadTaskFactory);
+        this.createExportTaskFactory = checkNotNull(createExportTaskFactory);
     }
 
     public void exportProject(@Nonnull UserId requester,
-                                @Nonnull ProjectId projectId,
-                                @Nonnull RevisionNumber revisionNumber,
-                                @Nonnull DownloadFormat downloadFormat,
-                                @Nonnull HttpServletResponse response) throws IOException {
+                              @Nonnull ProjectId projectId,
+                              @Nonnull RevisionNumber revisionNumber,
+                              @Nonnull DownloadFormat downloadFormat,
+                              @Nonnull HttpServletResponse response,
+                              @Nonnull String realPath) throws IOException {
 
         RevisionNumber realRevisionNumber;
         if(revisionNumber.isHead()) {
@@ -96,7 +97,7 @@ public class ProjectExportService {
                                   projectId,
                                   revisionNumber,
                                   downloadFormat,
-                                  downloadPath);
+                                  downloadPath, realPath);
 
         transferFileToClient(projectId,
                              requester,
@@ -110,7 +111,8 @@ public class ProjectExportService {
                                            @Nonnull ProjectId projectId,
                                            @Nonnull RevisionNumber revisionNumber,
                                            @Nonnull DownloadFormat downloadFormat,
-                                           @Nonnull Path downloadPath) {
+                                           @Nonnull Path downloadPath,
+                                           @Nonnull String realPath) {
         // This thing always returns the same lock for the same project.
         // This means that we won't create the *same* download more than once.  It
         // does mean that multiple *different* downloads could possibly be created at the same time
@@ -123,14 +125,14 @@ public class ProjectExportService {
                             requester);
                 return;
             }
-            CreateDownloadTask task = createDownloadTaskFactory.create(projectId,
+            CreateExportTask task = createExportTaskFactory.create(projectId,
                                                                        requester,
                                                                        getProjectDisplayName(projectId),
                                                                        revisionNumber,
                                                                        downloadFormat,
                                                                        downloadPath);
             try {
-                var futureOfCreateDownload = downloadGeneratorExecutor.submit(task);
+                var futureOfCreateDownload = exportGeneratorExecutor.submit(task);
                 logger.info("{} {} Submitted request to create download to queue", projectId, requester);
                 var stopwatch = Stopwatch.createStarted();
                 logger.info("{} {} Waiting for download to be created", projectId, requester);
@@ -276,7 +278,7 @@ public class ProjectExportService {
      */
     public void shutDown() {
         logger.info("Shutting down Project Download Service");
-        downloadGeneratorExecutor.shutdown();
+        exportGeneratorExecutor.shutdown();
         fileTransferExecutor.shutdown();
         logger.info("Project Download Service has been shut down");
     }

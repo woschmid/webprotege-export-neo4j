@@ -18,10 +18,12 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
+import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.io.File;
 import java.io.IOException;
 
 import static edu.stanford.bmir.protege.web.server.logging.RequestFormatter.formatAddr;
@@ -57,6 +59,24 @@ public class ProjectExportServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         final WebProtegeSession webProtegeSession = new WebProtegeSessionImpl(req.getSession());
+
+        String servletPath = req.getServletPath();
+        logger.info("ServletPath: {}", servletPath);
+
+        final ServletContext servletContext = this.getServletConfig().getServletContext();
+
+        String realPath = servletContext.getRealPath("/");
+        logger.info("RealPath: {}", realPath);
+
+        String contextPath = servletContext.getContextPath();
+        logger.info("ContextPath: {}", contextPath);
+
+        String filePath = realPath + File.separator + "test" + System.currentTimeMillis() + ".xml" ;
+        File f = new File(filePath);
+        f.createNewFile();
+
+        logger.info("Title.txt Path: {}", f.getAbsolutePath());
+
         UserId userId = webProtegeSession.getUserInSession();
         FileDownloadParameters downloadParameters = new FileDownloadParameters(req);
         if(!downloadParameters.isProjectDownload()) {
@@ -80,17 +100,17 @@ public class ProjectExportServlet extends HttpServlet {
             resp.sendError(HttpServletResponse.SC_FORBIDDEN);
         }
         else if (downloadParameters.isProjectDownload()) {
-            startProjectDownload(resp, userId, downloadParameters);
+            startProjectExport(resp, userId, downloadParameters, realPath);
         }
     }
 
-    private void startProjectDownload(HttpServletResponse resp,
-                                      UserId userId,
-                                      FileDownloadParameters downloadParameters) throws IOException {
+    private void startProjectExport(HttpServletResponse resp,
+                                    UserId userId,
+                                    FileDownloadParameters downloadParameters, String realPath) throws IOException {
         ProjectId projectId = downloadParameters.getProjectId();
         RevisionNumber revisionNumber = downloadParameters.getRequestedRevision();
         DownloadFormat format = downloadParameters.getFormat();
-        projectExportService.exportProject(userId, projectId, revisionNumber, format, resp);
+        projectExportService.exportProject(userId, projectId, revisionNumber, format, resp, realPath);
     }
 
     @Override
