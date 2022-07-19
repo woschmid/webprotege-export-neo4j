@@ -99,12 +99,15 @@ public class ProjectExportService {
                                   downloadFormat,
                                   downloadPath, realPath);
 
-        transferFileToClient(projectId,
+        // test connection to neo4j
+        exportToNeo4J();
+
+/*        transferFileToClient(projectId,
                              requester,
                              revisionNumber,
                              downloadFormat,
                              downloadPath,
-                             response);
+                             response);*/
     }
 
     private void createDownloadIfNecessary(@Nonnull UserId requester,
@@ -159,7 +162,7 @@ public class ProjectExportService {
         return projectDetailsManager.getProjectDetails(projectId)
                                     .getDisplayName();
     }
-
+/*
     private void transferFileToClient(@Nonnull ProjectId projectId,
                                       @Nonnull UserId userId,
                                       @Nonnull RevisionNumber revisionNumber,
@@ -168,8 +171,7 @@ public class ProjectExportService {
                                       @Nonnull HttpServletResponse response) {
 
 
-        // test connection to neo4j
-        testNeo4jConnection();
+
 
         String fileName = getClientSideFileName(projectId, revisionNumber, downloadFormat);
         FileTransferTask task = new FileTransferTask(projectId,
@@ -190,11 +192,12 @@ public class ProjectExportService {
                         e.getCause());
         }
     }
+*/
 
     final static String NEO4JHOST = "neo4j";
     final static String WEBPROTEGEHOST = "webprotege";
 
-    private void testNeo4jConnection() {
+    private void exportToNeo4J() {
         String uri = "bolt://"+NEO4JHOST+":7687";
         Driver driver = GraphDatabase.driver( uri, AuthTokens.basic( "neo4j", "test" ) );
         Session session = driver.session();
@@ -255,7 +258,7 @@ public class ProjectExportService {
             }
         });
     }
-
+/*
     private String getClientSideFileName(ProjectId projectId, RevisionNumber revision, DownloadFormat downloadFormat) {
         String revisionNumberSuffix;
         if (revision.isHead()) {
@@ -272,7 +275,7 @@ public class ProjectExportService {
                 + ".zip";
         return fileName.toLowerCase();
     }
-
+*/
     /**
      * Shuts down this {@link ProjectExportService}.
      */
