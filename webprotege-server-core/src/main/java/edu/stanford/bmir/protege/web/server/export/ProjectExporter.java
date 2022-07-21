@@ -5,7 +5,6 @@ import com.google.auto.factory.Provided;
 import edu.stanford.bmir.protege.web.server.download.DownloadFormat;
 import edu.stanford.bmir.protege.web.server.project.PrefixDeclarationsStore;
 import edu.stanford.bmir.protege.web.server.revision.RevisionManager;
-import edu.stanford.bmir.protege.web.server.util.MemoryMonitor;
 import edu.stanford.bmir.protege.web.shared.project.ProjectId;
 import edu.stanford.bmir.protege.web.shared.revision.RevisionNumber;
 import org.semanticweb.owlapi.model.OWLOntology;
@@ -21,8 +20,7 @@ import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Map;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -80,28 +78,43 @@ public class ProjectExporter {
 
     public void exportProject(OutputStream outputStream) throws IOException {
         try {
-            exportProjectRevision(fileName, revision, outputStream, format);
-
+            exportProjectRevision(revision, outputStream, format);
         } catch(OWLOntologyStorageException e) {
             e.printStackTrace();
         }
-
     }
 
-    private void exportProjectRevision(@Nonnull String projectDisplayName,
-                                       @Nonnull RevisionNumber revisionNumber,
+    private void exportProjectRevision(@Nonnull RevisionNumber revisionNumber,
                                        @Nonnull OutputStream outputStream,
                                        @Nonnull DownloadFormat format) throws IOException, OWLOntologyStorageException {
         OWLOntologyManager manager = revisionManager.getOntologyManagerForRevision(revisionNumber);
-        saveOntologiesToStream(projectDisplayName, manager, format, outputStream, revisionNumber);
+        saveOntologyToStream(manager, format, outputStream);
     }
 
-    private void saveOntologiesToStream(@Nonnull String projectDisplayName,
-                                        @Nonnull OWLOntologyManager manager,
-                                        @Nonnull DownloadFormat format,
-                                        @Nonnull OutputStream outputStream,
-                                        @Nonnull RevisionNumber revisionNumber) throws IOException, OWLOntologyStorageException {
+    private void saveOntologyToStream(@Nonnull OWLOntologyManager manager,
+                                      @Nonnull DownloadFormat format,
+                                      @Nonnull OutputStream outputStream) throws IOException, OWLOntologyStorageException {
         // TODO: Separate object
+        try (BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(outputStream)) {
+            Set<OWLOntology> ontologies = manager.getOntologies();
+            if (ontologies.size() == 1) {
+                for (var ontology : ontologies) {
+                    var documentFormat = format.getDocumentFormat();
+                    if (documentFormat.isPrefixOWLOntologyFormat()) {
+                        var prefixDocumentFormat = documentFormat.asPrefixOWLOntologyFormat();
+                        Map<String, String> prefixes = prefixDeclarationsStore.find(projectId).getPrefixes();
+                        prefixes.forEach(prefixDocumentFormat::setPrefix);
+                    }
+                    var ontologyShortForm = getOntologyShortForm(ontology);
+                    var ontologyDocumentFileName = ontologyShortForm.replace(":", "_");
+                    ontology.getOWLOntologyManager().saveOntology(ontology, documentFormat, bufferedOutputStream);
+                }
+            } else {
+                throw new RuntimeException("Only one ontology supported");
+            }
+            bufferedOutputStream.flush();
+        }
+        /*
         try(ZipOutputStream zipOutputStream = new ZipOutputStream(new BufferedOutputStream(outputStream))) {
             String baseFolder = projectDisplayName.replace(" ", "-") + "-ontologies-" + format.getExtension();
             baseFolder = baseFolder.toLowerCase();
@@ -124,11 +137,7 @@ public class ProjectExporter {
             zipOutputStream.finish();
             zipOutputStream.flush();
         }
-    }
-
-    private void logMemoryUsage() {
-        MemoryMonitor memoryMonitor = new MemoryMonitor(logger);
-        memoryMonitor.monitorMemoryUsage();
+        */
     }
 
     private String getOntologyShortForm(OWLOntology ontology) {

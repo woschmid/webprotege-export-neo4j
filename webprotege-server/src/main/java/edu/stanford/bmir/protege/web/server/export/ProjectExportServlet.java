@@ -71,12 +71,6 @@ public class ProjectExportServlet extends HttpServlet {
         String contextPath = servletContext.getContextPath();
         logger.info("ContextPath: {}", contextPath);
 
-        String filePath = realPath + File.separator + "test" + System.currentTimeMillis() + ".xml" ;
-        File f = new File(filePath);
-        f.createNewFile();
-
-        logger.info("Title.txt Path: {}", f.getAbsolutePath());
-
         UserId userId = webProtegeSession.getUserInSession();
         FileDownloadParameters downloadParameters = new FileDownloadParameters(req);
         if(!downloadParameters.isProjectDownload()) {

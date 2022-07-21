@@ -54,6 +54,10 @@ public enum DownloadFormat {
         return extension.getExtension();
     }
 
+    public DownloadFormatExtension getDownloadFormatExtension() {
+        return extension;
+    }
+
 
     /**
      * Gets the format for the specified name.
