@@ -1,6 +1,5 @@
 package edu.stanford.bmir.protege.web.server.export;
 
-import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.Striped;
 import edu.stanford.bmir.protege.web.server.download.DownloadFormat;
 import edu.stanford.bmir.protege.web.server.download.FileTransferExecutor;
@@ -14,22 +13,23 @@ import edu.stanford.bmir.protege.web.shared.revision.RevisionNumber;
 import edu.stanford.bmir.protege.web.shared.user.UserId;
 import org.neo4j.driver.*;
 import org.neo4j.driver.internal.value.NullValue;
+import org.semanticweb.owlapi.model.OWLOntologyStorageException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletResponse;
+import javax.validation.UnexpectedTypeException;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.locks.Lock;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
  * Matthew Horridge
@@ -59,13 +59,16 @@ public class ProjectExportService {
     private final Striped<Lock> lockStripes = Striped.lazyWeakLock(10);
 
     @Nonnull
-    private final CreateExportTaskFactory createExportTaskFactory;
-
-    @Nonnull
     private final ProjectExporterFactory projectExporterFactory;
 
     @Nonnull
     private final ProjectManager projectManager;
+
+    /** The host of neo4j (either localhost or a docker name) */
+    final static String NEO4JHOST = "neo4j"; //"localhost"; //"neo4j";
+
+    /** The host of webprotege (either localhost or a docker name) */
+    final static String WEBPROTEGEHOST = "webprotege"; //"localhost"; //"webprotege";
 
     @Inject
     public ProjectExportService(@Nonnull @ExportGeneratorExecutor ExecutorService exportGeneratorExecutor,
@@ -74,14 +77,12 @@ public class ProjectExportService {
                                 @Nonnull ProjectManager projectManager,
                                 @Nonnull ProjectDownloadCache projectDownloadCache,
                                 @Nonnull HeadRevisionNumberFinder headRevisionNumberFinder,
-                                @Nonnull CreateExportTaskFactory createExportTaskFactory,
                                 @Nonnull ProjectExporterFactory projectExporterFactory) {
         this.exportGeneratorExecutor = checkNotNull(exportGeneratorExecutor);
         this.fileTransferExecutor = checkNotNull(fileTransferExecutor);
         this.projectDetailsManager = checkNotNull(projectDetailsManager);
         this.projectDownloadCache = checkNotNull(projectDownloadCache);
         this.headRevisionNumberFinder = checkNotNull(headRevisionNumberFinder);
-        this.createExportTaskFactory = checkNotNull(createExportTaskFactory);
         this.projectExporterFactory = checkNotNull(projectExporterFactory);
         this.projectManager = checkNotNull(projectManager);
     }
@@ -93,23 +94,37 @@ public class ProjectExportService {
                               @Nonnull HttpServletResponse response,
                               @Nonnull String realPath) throws IOException {
 
-        File file = exportOntology(requester,
-                projectId,
+        File file = exportOntology(requester, projectId,
                 revisionNumber,
                 downloadFormat,
                 realPath);
 
         // test connection to neo4j
-        exportToNeo4J(file.getName(), downloadFormat);
+        String responseMsg = importOntologyIntoNeo4J(file.getName(), downloadFormat);
 
-        file.delete();
+        boolean isFileDeleted = file.delete();
+        if (!isFileDeleted) logger.warn("File " + file.getName() + " could not be deleted!");
+
+        response.setStatus(HttpServletResponse.SC_CREATED);
+        sendSuccessMessage(response, responseMsg);
+    }
+
+    private void sendSuccessMessage(HttpServletResponse response, String msg) throws IOException {
+        PrintWriter writer = response.getWriter();
+        writeString(writer, msg);
+    }
+
+    private void writeString(PrintWriter printWriter, String string) {
+        printWriter.print("\"");
+        printWriter.print(string);
+        printWriter.print("\"");
     }
 
     private File exportOntology(@Nonnull UserId requester,
                                            @Nonnull ProjectId projectId,
                                            @Nonnull RevisionNumber revisionNumber,
                                            @Nonnull DownloadFormat downloadFormat,
-                                           @Nonnull String realPath) {
+                                           @Nonnull String realPath) throws RuntimeException {
         // This thing always returns the same lock for the same project.
         // This means that we won't create the *same* download more than once.  It
         // does mean that multiple *different* downloads could possibly be created at the same time
@@ -123,19 +138,16 @@ public class ProjectExportService {
                     projectDisplayName,
                     revisionNumber,
                     downloadFormat,
-                    projectManager.getRevisionManager(projectId));
+                    projectManager.getRevisionManager(projectId),
+                    headRevisionNumberFinder,
+                    realPath);
 
             try {
-                String fileName = projectDisplayName + '.' + downloadFormat.getExtension();
-                String filePath = realPath + File.separator + fileName;
-                File file = new File(filePath);
-                file.createNewFile();
-                exporter.exportProject(new FileOutputStream(file));
-                return file;
+                return exporter.exportOntology();
             } catch (FileNotFoundException e) {
                 logger.info("The file {} in {} was not found of this project was interrupted.", projectId, requester);
                 throw new RuntimeException(e);
-            } catch (IOException e) {
+            } catch (IOException | OWLOntologyStorageException e) {
                 throw new RuntimeException(e);
             }
         }
@@ -149,38 +161,72 @@ public class ProjectExportService {
                                     .getDisplayName();
     }
 
-    final static String NEO4JHOST = "localhost"; //"neo4j";
-    final static String WEBPROTEGEHOST = "localhost"; //"webprotege";
-
-    private void exportToNeo4J(String filename, DownloadFormat downloadFormat) {
+    private String importOntologyIntoNeo4J(String filename, DownloadFormat downloadFormat) {
         String uri = "bolt://"+NEO4JHOST+":7687";
         Driver driver = GraphDatabase.driver( uri, AuthTokens.basic( "neo4j", "test" ) );
-        Session session = driver.session();
+        try {
+            Session session = driver.session();
 
-        if (! doesUniquenessConstraintExist(session)) {
-            final String s = session.writeTransaction(tx -> {
-                Result result = tx.run("CREATE CONSTRAINT n10s_unique_uri ON (r:Resource) ASSERT r.uri IS UNIQUE");
-                return result.list().toString();
+            // first delete everything
+            final String s1 = session.writeTransaction(tx -> {
+                Result result = tx.run("MATCH (n) DETACH DELETE n");
+                final List<Record> list = result.list();
+                return list.toString();
             });
-            logger.info("doesUniquenessConstraintExist() -> {}", s);
-        }
+            logger.info("DETACH DELETE -> {}", s1);
 
-        if (! doesGraphConfigExist(session)) {
-            final String s = session.writeTransaction(tx -> {
-                Result result = tx.run("CALL n10s.graphconfig.init()");
-                return result.list().toString();
+            // Pre-requisite: Create uniqueness constraint
+            if (!doesUniquenessConstraintExist(session)) {
+                final String s2 = session.writeTransaction(tx -> {
+                    Result result = tx.run("CREATE CONSTRAINT n10s_unique_uri ON (r:Resource) ASSERT r.uri IS UNIQUE");
+                    final List<Record> list = result.list();
+                    return list.toString();
+                });
+                logger.info("doesUniquenessConstraintExist() -> {}", s2);
+            }
+
+            // Setting the configuration of the graph
+            if (!doesGraphConfigExist(session)) {
+                final String s3 = session.writeTransaction(tx -> {
+                    Result result = tx.run("CALL n10s.graphconfig.init()");
+                    final List<Record> list = result.list();
+                    return list.toString();
+                });
+                logger.info("doesGraphConfigExist() -> {}", s3);
+            }
+
+            // Importing the ontology from the exported file
+            final String serializationFormat = downloadFormat.getDownloadFormatExtension().getDisplayName();
+            final String s4 = session.writeTransaction(tx -> {
+                Result result = tx.run("CALL n10s.rdf.import.fetch(\"http://" + WEBPROTEGEHOST + ":8080/" + filename + "\",\"" + serializationFormat + "\");");
+                final List<Record> list = result.list();
+                if (list.size() == 1) {
+                    Record record = list.get(0);
+                    Value terminationStatus = record.get("terminationStatus");
+                    if (terminationStatus.isNull())
+                        throw new UnexpectedTypeException("terminationStatus not available");
+                    String terminationStatusValue = terminationStatus.asString();
+                    if (!"OK".equalsIgnoreCase(terminationStatusValue)) {
+                        throw new UnexpectedTypeException("terminationStatus is of unexpected value " + terminationStatusValue);
+                    }
+                    return transformResultToString(record);
+                } else {
+                    throw new UnexpectedTypeException("Result of import has " + list.size() + " elements");
+                }
             });
-            logger.info("doesGraphConfigExist() -> {}", s);
+            logger.info("Importing ontology {} using serialization format {} -> {}", filename, serializationFormat, s4);
+            return s4;
+        } finally {
+            driver.close();
         }
+    }
 
-        final String serializationFormat = downloadFormat.getDownloadFormatExtension().getDisplayName();
-        final String s = session.writeTransaction(tx -> {
-            Result result = tx.run("CALL n10s.rdf.import.fetch(\"http://"+WEBPROTEGEHOST+":8080/" + filename + "\",\"" + serializationFormat + "\");");
-            return result.list().toString();
-        });
-        logger.info("Importing {} -> {}", filename, s);
-
-        driver.close();
+    private String transformResultToString(final Record r) {
+        StringBuffer sb = new StringBuffer();
+        sb.append("terminationStatus:").append(r.get("terminationStatus")).append("\n");
+        sb.append("triplesLoaded:").append(r.get("triplesLoaded")).append("\n");
+        sb.append("triplesParsed:").append(r.get("triplesParsed")).append("\n");
+        return sb.toString();
     }
 
     private boolean doesGraphConfigExist(Session session) {

@@ -4,21 +4,19 @@ import com.google.auto.factory.AutoFactory;
 import com.google.auto.factory.Provided;
 import edu.stanford.bmir.protege.web.server.download.DownloadFormat;
 import edu.stanford.bmir.protege.web.server.project.PrefixDeclarationsStore;
+import edu.stanford.bmir.protege.web.server.revision.HeadRevisionNumberFinder;
 import edu.stanford.bmir.protege.web.server.revision.RevisionManager;
 import edu.stanford.bmir.protege.web.shared.project.ProjectId;
 import edu.stanford.bmir.protege.web.shared.revision.RevisionNumber;
 import org.semanticweb.owlapi.model.OWLOntology;
 import org.semanticweb.owlapi.model.OWLOntologyManager;
 import org.semanticweb.owlapi.model.OWLOntologyStorageException;
-import org.semanticweb.owlapi.util.OntologyIRIShortFormProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
-import java.io.BufferedOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
+import java.io.*;
 import java.util.Map;
 import java.util.Set;
 
@@ -38,10 +36,10 @@ public class ProjectExporter {
     private final RevisionNumber revision;
 
     @Nonnull
-    private final DownloadFormat format;
+    private final DownloadFormat downloadFormat;
 
     @Nonnull
-    private final String fileName;
+    private final String projectDisplayName;
 
     @Nonnull
     private final PrefixDeclarationsStore prefixDeclarationsStore;
@@ -50,38 +48,70 @@ public class ProjectExporter {
     private final RevisionManager revisionManager;
 
     @Nonnull
+    private final HeadRevisionNumberFinder headRevisionNumberFinder;
+
+    @Nonnull
     private final ProjectId projectId;
+
+    @Nonnull
+    private final String realPath;
 
     /**
      * Creates a project downloader that downloads the specified revision of the specified project.
      *
      * @param revisionManager         The revision manager of project to be downloaded.  Not <code>null</code>.
      * @param revision                The revision of the project to be downloaded.
-     * @param format                  The format which the project should be downloaded in.
+     * @param downloadFormat                  The format which the project should be downloaded in.
      * @param prefixDeclarationsStore The prefix declarations store that is used to retrieve customised prefixes
      */
     @AutoFactory
     @Inject
     public ProjectExporter(@Nonnull ProjectId projectId,
-                           @Nonnull String fileName,
+                           @Nonnull String projectDisplayName,
                            @Nonnull RevisionNumber revision,
-                           @Nonnull DownloadFormat format,
+                           @Nonnull DownloadFormat downloadFormat,
                            @Nonnull RevisionManager revisionManager,
+                           @Nonnull HeadRevisionNumberFinder headRevisionNumberFinder,
+                           @Nonnull String realPath,
                            @Provided @Nonnull PrefixDeclarationsStore prefixDeclarationsStore) {
         this.projectId = checkNotNull(projectId);
         this.revision = checkNotNull(revision);
         this.revisionManager = checkNotNull(revisionManager);
-        this.format = checkNotNull(format);
-        this.fileName = checkNotNull(fileName);
+        this.headRevisionNumberFinder = checkNotNull(headRevisionNumberFinder);
+        this.downloadFormat = checkNotNull(downloadFormat);
+        this.projectDisplayName = checkNotNull(projectDisplayName);
+        this.realPath = checkNotNull(realPath);
         this.prefixDeclarationsStore = checkNotNull(prefixDeclarationsStore);
     }
 
-    public void exportProject(OutputStream outputStream) throws IOException {
-        try {
-            exportProjectRevision(revision, outputStream, format);
-        } catch(OWLOntologyStorageException e) {
-            e.printStackTrace();
+    public File exportOntology() throws IOException, OWLOntologyStorageException {
+        RevisionNumber realRevisionNumber;
+        if (this.revision.isHead()) {
+            realRevisionNumber = getHeadRevisionNumber(projectId);
         }
+        else {
+            realRevisionNumber = this.revision;
+        }
+
+        String fileName = projectDisplayName + '_' + realRevisionNumber + '.' + downloadFormat.getExtension();
+        String filePath = realPath + (realPath.endsWith(File.separator) ? "" : File.separator) + fileName;
+        File file = new File(filePath);
+        if (file.exists()) {
+            boolean isPreExistingFileDeleted = file.delete();
+            if (!isPreExistingFileDeleted)
+                throw new IOException("File " + file.getName() + " already exists in " + file.getAbsolutePath() + " and could not be deleted before exporting the new file");
+        }
+        boolean isFileCreated = file.createNewFile();
+        if (isFileCreated) {
+            FileOutputStream fileOutputStream = new FileOutputStream(file);
+            exportProjectRevision(revision, fileOutputStream, downloadFormat);
+        } else
+            throw new IOException("Could not create file " + fileName + " in path " + realPath);
+        return file;
+    }
+
+    private RevisionNumber getHeadRevisionNumber(@Nonnull ProjectId projectId) throws IOException {
+        return headRevisionNumberFinder.getHeadRevisionNumber(projectId);
     }
 
     private void exportProjectRevision(@Nonnull RevisionNumber revisionNumber,
@@ -94,7 +124,6 @@ public class ProjectExporter {
     private void saveOntologyToStream(@Nonnull OWLOntologyManager manager,
                                       @Nonnull DownloadFormat format,
                                       @Nonnull OutputStream outputStream) throws IOException, OWLOntologyStorageException {
-        // TODO: Separate object
         try (BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(outputStream)) {
             Set<OWLOntology> ontologies = manager.getOntologies();
             if (ontologies.size() == 1) {
@@ -105,8 +134,6 @@ public class ProjectExporter {
                         Map<String, String> prefixes = prefixDeclarationsStore.find(projectId).getPrefixes();
                         prefixes.forEach(prefixDocumentFormat::setPrefix);
                     }
-                    var ontologyShortForm = getOntologyShortForm(ontology);
-                    var ontologyDocumentFileName = ontologyShortForm.replace(":", "_");
                     ontology.getOWLOntologyManager().saveOntology(ontology, documentFormat, bufferedOutputStream);
                 }
             } else {
@@ -114,33 +141,5 @@ public class ProjectExporter {
             }
             bufferedOutputStream.flush();
         }
-        /*
-        try(ZipOutputStream zipOutputStream = new ZipOutputStream(new BufferedOutputStream(outputStream))) {
-            String baseFolder = projectDisplayName.replace(" ", "-") + "-ontologies-" + format.getExtension();
-            baseFolder = baseFolder.toLowerCase();
-            baseFolder = baseFolder + "-REVISION-" + (revisionNumber.isHead() ? "HEAD" : revisionNumber.getValue());
-            for(var ontology : manager.getOntologies()) {
-                var documentFormat = format.getDocumentFormat();
-                if(documentFormat.isPrefixOWLOntologyFormat()) {
-                    var prefixDocumentFormat = documentFormat.asPrefixOWLOntologyFormat();
-                    Map<String, String> prefixes = prefixDeclarationsStore.find(projectId).getPrefixes();
-                    prefixes.forEach(prefixDocumentFormat::setPrefix);
-                }
-                var ontologyShortForm = getOntologyShortForm(ontology);
-                var ontologyDocumentFileName = ontologyShortForm.replace(":", "_");
-                ZipEntry zipEntry = new ZipEntry(baseFolder + "/" + ontologyDocumentFileName + "." + format.getExtension());
-                zipOutputStream.putNextEntry(zipEntry);
-                ontology.getOWLOntologyManager().saveOntology(ontology, documentFormat, zipOutputStream);
-                zipOutputStream.closeEntry();
-                logMemoryUsage();
-            }
-            zipOutputStream.finish();
-            zipOutputStream.flush();
-        }
-        */
-    }
-
-    private String getOntologyShortForm(OWLOntology ontology) {
-        return new OntologyIRIShortFormProvider().getShortForm(ontology);
     }
 }
