@@ -93,7 +93,7 @@ public class ProjectExporter {
             realRevisionNumber = this.revision;
         }
 
-        String fileName = projectDisplayName + '_' + realRevisionNumber + '.' + downloadFormat.getExtension();
+        String fileName = projectDisplayName + '_' + realRevisionNumber + '_' + System.currentTimeMillis() + '.' + downloadFormat.getExtension();
         String filePath = realPath + (realPath.endsWith(File.separator) ? "" : File.separator) + fileName;
         File file = new File(filePath);
         if (file.exists()) {
