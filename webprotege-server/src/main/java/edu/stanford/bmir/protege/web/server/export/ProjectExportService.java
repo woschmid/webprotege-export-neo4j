@@ -13,6 +13,7 @@ import edu.stanford.bmir.protege.web.shared.revision.RevisionNumber;
 import edu.stanford.bmir.protege.web.shared.user.UserId;
 import org.neo4j.driver.*;
 import org.neo4j.driver.internal.value.NullValue;
+import org.neo4j.driver.util.Pair;
 import org.semanticweb.owlapi.model.OWLOntologyStorageException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,10 +66,10 @@ public class ProjectExportService {
     private final ProjectManager projectManager;
 
     /** The host of neo4j (either localhost or a docker name) */
-    final static String NEO4JHOST = "neo4j"; //"localhost"; //"neo4j";
+    final static String NEO4JHOST = "neo4j"; //*/"localhost";
 
     /** The host of webprotege (either localhost or a docker name) */
-    final static String WEBPROTEGEHOST = "webprotege"; //"localhost"; //"webprotege";
+    final static String WEBPROTEGEHOST = "webprotege"; //*/"localhost";
 
     @Inject
     public ProjectExportService(@Nonnull @ExportGeneratorExecutor ExecutorService exportGeneratorExecutor,
@@ -115,9 +116,9 @@ public class ProjectExportService {
     }
 
     private void writeString(PrintWriter printWriter, String string) {
-        printWriter.print("\"");
+        //printWriter.print("\"");
         printWriter.print(string);
-        printWriter.print("\"");
+        //printWriter.print("\"");
     }
 
     private File exportOntology(@Nonnull UserId requester,
@@ -164,40 +165,49 @@ public class ProjectExportService {
     private String importOntologyIntoNeo4J(String filename, DownloadFormat downloadFormat) {
         String uri = "bolt://"+NEO4JHOST+":7687";
         Driver driver = GraphDatabase.driver( uri, AuthTokens.basic( "neo4j", "test" ) );
+        StringBuilder sb = new StringBuilder("<html>\n");
+        addHeader(sb);
+
+        sb.append("<body>\n");
         try {
             Session session = driver.session();
 
             // first delete everything
-            final String s1 = session.writeTransaction(tx -> {
+            final String transactionResult01 = session.writeTransaction(tx -> {
                 Result result = tx.run("MATCH (n) DETACH DELETE n");
                 final List<Record> list = result.list();
                 return list.toString();
             });
-            logger.info("DETACH DELETE -> {}", s1);
+            logger.info("DETACH DELETE -> {}", transactionResult01);
+            sb.append("<p>").append("Deleting existing graph ... ").append(transactionResult01).append("<p/>");
 
             // Pre-requisite: Create uniqueness constraint
             if (!doesUniquenessConstraintExist(session)) {
-                final String s2 = session.writeTransaction(tx -> {
+                final String transactionResult02 = session.writeTransaction(tx -> {
                     Result result = tx.run("CREATE CONSTRAINT n10s_unique_uri ON (r:Resource) ASSERT r.uri IS UNIQUE");
-                    final List<Record> list = result.list();
-                    return list.toString();
+                    return listToString(result.list());
+                    //final List<Record> list = result.list();
+                    //return list.toString();
                 });
-                logger.info("doesUniquenessConstraintExist() -> {}", s2);
+                logger.info("doesUniquenessConstraintExist() -> {}", transactionResult02);
+                sb.append("<p>").append("Creating uniqueness constraint ... ").append(transactionResult02).append("<p/>");
             }
 
             // Setting the configuration of the graph
             if (!doesGraphConfigExist(session)) {
-                final String s3 = session.writeTransaction(tx -> {
+                final String transactionResult03 = session.writeTransaction(tx -> {
                     Result result = tx.run("CALL n10s.graphconfig.init()");
-                    final List<Record> list = result.list();
-                    return list.toString();
+                    return listToString(result.list());
+                    //final List<Record> list = result.list();
+                    //return list.toString();
                 });
-                logger.info("doesGraphConfigExist() -> {}", s3);
+                logger.info("doesGraphConfigExist() -> {}", transactionResult03);
+                sb.append("<p>").append("Setting the configuration of the graph: ").append(transactionResult03).append("<p/>");
             }
 
             // Importing the ontology from the exported file
             final String serializationFormat = downloadFormat.getDownloadFormatExtension().getDisplayName();
-            final String s4 = session.writeTransaction(tx -> {
+            final String transactionResult04 = session.writeTransaction(tx -> {
                 Result result = tx.run("CALL n10s.rdf.import.fetch(\"http://" + WEBPROTEGEHOST + ":8080/" + filename + "\",\"" + serializationFormat + "\");");
                 final List<Record> list = result.list();
                 if (list.size() == 1) {
@@ -206,7 +216,13 @@ public class ProjectExportService {
                     if (terminationStatus.isNull())
                         throw new UnexpectedTypeException("terminationStatus not available");
                     String terminationStatusValue = terminationStatus.asString();
-                    if (!"OK".equalsIgnoreCase(terminationStatusValue)) {
+                    if ("KO".equalsIgnoreCase(terminationStatusValue)) {
+                        Value extraInfo = record.get("extraInfo");
+                        if (extraInfo.isNull())
+                            throw new UnexpectedTypeException("extraInfo unknown");
+                        String extraInfoValue = extraInfo.asString();
+                        return "Import failed because " + extraInfoValue;
+                    } else if (!"OK".equalsIgnoreCase(terminationStatusValue)) {
                         throw new UnexpectedTypeException("terminationStatus is of unexpected value " + terminationStatusValue);
                     }
                     return transformResultToString(record);
@@ -214,18 +230,44 @@ public class ProjectExportService {
                     throw new UnexpectedTypeException("Result of import has " + list.size() + " elements");
                 }
             });
-            logger.info("Importing ontology {} using serialization format {} -> {}", filename, serializationFormat, s4);
-            return s4;
+            logger.info("Importing ontology {} using serialization format {} -> {}", filename, serializationFormat, transactionResult04);
+            sb.append("<p>").append("Importing ontology ").append(filename).append(" ... ").append(transactionResult04).append("</p>");
+
         } finally {
             driver.close();
+            sb.append("</body></html>");
         }
+        return sb.toString();
+    }
+
+    private String listToString(final List<Record> list) {
+        if (list.isEmpty()) return "";
+        StringBuilder sb = new StringBuilder("<ul>");
+        for (Record r : list) {
+            sb.append("<li>");
+            for (Pair<String, Value> field : r.fields())
+                sb.append(field.value()).append(':');
+            sb.append("</li>");
+        }
+        sb.append("</ul>");
+        return sb.toString();
+    }
+
+    private void addHeader(StringBuilder sb) {
+        sb.append("<head>\n").
+                append("    <meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\">\n").
+                append("    <title>WebProt&#233;g&#233; Report for Export to Neo4J</title>\n").
+                append("    <link rel=\"shortcut icon\" type=\"image/x-icon\" href=\"favicon.png\"/>\n").
+                append("    <link rel=\"stylesheet\" href=\"css/WebProtege.css\" type=\"text/css\">\n").
+                append("</head>\n");
     }
 
     private String transformResultToString(final Record r) {
-        StringBuffer sb = new StringBuffer();
-        sb.append("terminationStatus:").append(r.get("terminationStatus")).append("\n");
-        sb.append("triplesLoaded:").append(r.get("triplesLoaded")).append("\n");
-        sb.append("triplesParsed:").append(r.get("triplesParsed")).append("\n");
+        StringBuilder sb = new StringBuilder("<ul>");
+        sb.append("<li>terminationStatus:").append(r.get("terminationStatus")).append("</li>");
+        sb.append("<li>triplesLoaded:").append(r.get("triplesLoaded")).append("</li>");
+        sb.append("<li>triplesParsed:").append(r.get("triplesParsed")).append("</li>");
+        sb.append("</ul>");
         return sb.toString();
     }
 
