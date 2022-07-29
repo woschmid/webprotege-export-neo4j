@@ -3,7 +3,7 @@ package edu.stanford.bmir.protege.web.client.export;
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.http.client.URL;
 import com.google.gwt.user.client.Window;
-import edu.stanford.bmir.protege.web.shared.download.DownloadFormatExtension;
+import edu.stanford.bmir.protege.web.shared.export.ExportFormatExtension;
 import edu.stanford.bmir.protege.web.shared.project.ProjectId;
 import edu.stanford.bmir.protege.web.shared.revision.RevisionNumber;
 
@@ -25,7 +25,7 @@ public class ProjectRevisionExporter {
 
     private final RevisionNumber revisionNumber;
 
-    private final DownloadFormatExtension formatExtension;
+    private final ExportFormatExtension formatExtension;
 
     /**
      * Constructs a ProjectRevisionDownloader for the specified project, revision and project format.
@@ -34,7 +34,7 @@ public class ProjectRevisionExporter {
      * @param downloadFormatExtension The format that the project should be downloaded in.  Not {@code null}.
      * @throws  NullPointerException if any parameters are {@code null}.
      */
-    public ProjectRevisionExporter(ProjectId projectId, RevisionNumber revisionNumber, DownloadFormatExtension downloadFormatExtension) {
+    public ProjectRevisionExporter(ProjectId projectId, RevisionNumber revisionNumber, ExportFormatExtension downloadFormatExtension) {
         this.projectId = checkNotNull(projectId);
         this.revisionNumber = checkNotNull(revisionNumber);
         this.formatExtension = checkNotNull(downloadFormatExtension);

@@ -117,7 +117,6 @@ public class AvailableProjectPresenter {
         AbstractUiAction exportAction = new AbstractUiAction("Export to Neo4j ... ") {
             @Override
             public void execute() {
-                //downloadProjectRequestHandler.handleProjectDownloadRequest(project.getProjectId()); // TODO use appropriate RequestHandler and Servlet
                 exportProjectRequestHandler.handleProjectExportRequest(project.getProjectId());
             }
         };

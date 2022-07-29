@@ -2,9 +2,9 @@ package edu.stanford.bmir.protege.web.client.projectmanager;
 
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.core.client.RunAsyncCallback;
-import edu.stanford.bmir.protege.web.client.download.DownloadSettingsDialog;
+import edu.stanford.bmir.protege.web.client.export.ExportSettingsDialog;
 import edu.stanford.bmir.protege.web.client.export.ProjectRevisionExporter;
-import edu.stanford.bmir.protege.web.shared.download.DownloadFormatExtension;
+import edu.stanford.bmir.protege.web.shared.export.ExportFormatExtension;
 import edu.stanford.bmir.protege.web.shared.project.ProjectId;
 import edu.stanford.bmir.protege.web.shared.revision.RevisionNumber;
 
@@ -25,12 +25,12 @@ public class ExportProjectRequestHandlerImpl implements ExportProjectRequestHand
 
             @Override
             public void onSuccess() {
-                DownloadSettingsDialog.showDialog(extension -> doExport(projectId, extension));
+                ExportSettingsDialog.showDialog(extension -> doExport(projectId, extension));
             }
         });
     }
 
-    private void doExport(ProjectId projectId, DownloadFormatExtension extension) {
+    private void doExport(ProjectId projectId, ExportFormatExtension extension) {
         RevisionNumber head = RevisionNumber.getHeadRevisionNumber();
         ProjectRevisionExporter exporter = new ProjectRevisionExporter(projectId, head, extension);
         exporter.export();
