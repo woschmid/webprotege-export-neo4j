@@ -40,6 +40,21 @@ import static com.google.common.base.Preconditions.checkNotNull;
 @ApplicationSingleton
 public class ProjectExportService {
 
+    /** The host of neo4j (either localhost or a docker name) */
+    final static String NEO4JHOST = "neo4j"; //*/"localhost";
+
+    /** The port number of the neo4j host */
+    final static int NEO4JPORT = 7687;
+
+    final static String NEO4JUSER = "neo4j";
+
+    final static String NEO4JPASS = "test";
+
+    /** The host of webprotege (either localhost or a docker name) */
+    final static String WEBPROTEGEHOST = "webprotege"; //*/"localhost";
+
+    final static int WEBPROTEGEPORT = 8080;
+
     private static final Logger logger = LoggerFactory.getLogger(ProjectExportService.class);
 
     @Nonnull
@@ -65,12 +80,6 @@ public class ProjectExportService {
     @Nonnull
     private final ProjectManager projectManager;
 
-    /** The host of neo4j (either localhost or a docker name) */
-    final static String NEO4JHOST = "neo4j"; //*/"localhost";
-
-    /** The host of webprotege (either localhost or a docker name) */
-    final static String WEBPROTEGEHOST = "webprotege"; //*/"localhost";
-
     @Inject
     public ProjectExportService(@Nonnull @ExportGeneratorExecutor ExecutorService exportGeneratorExecutor,
                                 @Nonnull @FileTransferExecutor ExecutorService fileTransferExecutor,
@@ -95,30 +104,22 @@ public class ProjectExportService {
                               @Nonnull HttpServletResponse response,
                               @Nonnull String realPath) throws IOException {
 
-        File file = exportOntology(requester, projectId,
-                revisionNumber,
-                downloadFormat,
-                realPath);
+        // create an export file on webprotege host
+        final File file = exportOntology(requester, projectId, revisionNumber, downloadFormat, realPath);
 
-        // test connection to neo4j
-        String responseMsg = importOntologyIntoNeo4J(file.getName(), downloadFormat);
+        // import file into neo4j via cypher
+        final String responseMsg = importOntologyIntoNeo4J(file.getName(), downloadFormat);
 
         boolean isFileDeleted = file.delete();
         if (!isFileDeleted) logger.warn("File " + file.getName() + " could not be deleted!");
 
-        response.setStatus(HttpServletResponse.SC_CREATED);
         sendSuccessMessage(response, responseMsg);
     }
 
     private void sendSuccessMessage(HttpServletResponse response, String msg) throws IOException {
+        response.setStatus(HttpServletResponse.SC_CREATED);
         PrintWriter writer = response.getWriter();
-        writeString(writer, msg);
-    }
-
-    private void writeString(PrintWriter printWriter, String string) {
-        //printWriter.print("\"");
-        printWriter.print(string);
-        //printWriter.print("\"");
+        writer.print(msg);
     }
 
     private File exportOntology(@Nonnull UserId requester,
@@ -163,22 +164,22 @@ public class ProjectExportService {
     }
 
     private String importOntologyIntoNeo4J(String filename, DownloadFormat downloadFormat) {
-        String uri = "bolt://"+NEO4JHOST+":7687";
-        Driver driver = GraphDatabase.driver( uri, AuthTokens.basic( "neo4j", "test" ) );
+        String uri = "bolt://"+NEO4JHOST+":"+NEO4JPORT;
+        Driver driver = GraphDatabase.driver( uri, AuthTokens.basic( NEO4JUSER, NEO4JPASS ) );
         StringBuilder sb = new StringBuilder("<html>\n");
         addHeader(sb);
 
         sb.append("<body>\n");
         try {
             Session session = driver.session();
-
+/*
             // first delete everything
             final String transactionResult01 = session.writeTransaction(tx -> {
                 Result result = tx.run("MATCH (n) DETACH DELETE n");
                 final List<Record> list = result.list();
                 return list.toString();
             });
-            logger.info("DETACH DELETE -> {}", transactionResult01);
+            logger.info("MATCH (n) DETACH DELETE n -> {}", transactionResult01);
             sb.append("<p>").append("Deleting existing graph ... ").append(transactionResult01).append("<p/>");
 
             // Pre-requisite: Create uniqueness constraint
@@ -186,8 +187,6 @@ public class ProjectExportService {
                 final String transactionResult02 = session.writeTransaction(tx -> {
                     Result result = tx.run("CREATE CONSTRAINT n10s_unique_uri ON (r:Resource) ASSERT r.uri IS UNIQUE");
                     return listToString(result.list());
-                    //final List<Record> list = result.list();
-                    //return list.toString();
                 });
                 logger.info("doesUniquenessConstraintExist() -> {}", transactionResult02);
                 sb.append("<p>").append("Creating uniqueness constraint ... ").append(transactionResult02).append("<p/>");
@@ -198,17 +197,15 @@ public class ProjectExportService {
                 final String transactionResult03 = session.writeTransaction(tx -> {
                     Result result = tx.run("CALL n10s.graphconfig.init()");
                     return listToString(result.list());
-                    //final List<Record> list = result.list();
-                    //return list.toString();
                 });
                 logger.info("doesGraphConfigExist() -> {}", transactionResult03);
                 sb.append("<p>").append("Setting the configuration of the graph: ").append(transactionResult03).append("<p/>");
             }
-
+*/
             // Importing the ontology from the exported file
             final String serializationFormat = downloadFormat.getDownloadFormatExtension().getDisplayName();
             final String transactionResult04 = session.writeTransaction(tx -> {
-                Result result = tx.run("CALL n10s.rdf.import.fetch(\"http://" + WEBPROTEGEHOST + ":8080/" + filename + "\",\"" + serializationFormat + "\");");
+                Result result = tx.run("CALL n10s.rdf.import.fetch(\"http://" + WEBPROTEGEHOST + ":" + WEBPROTEGEPORT + "/" + filename + "\",\"" + serializationFormat + "\");");
                 final List<Record> list = result.list();
                 if (list.size() == 1) {
                     Record record = list.get(0);
@@ -222,10 +219,11 @@ public class ProjectExportService {
                             throw new UnexpectedTypeException("extraInfo unknown");
                         String extraInfoValue = extraInfo.asString();
                         return "Import failed because " + extraInfoValue;
-                    } else if (!"OK".equalsIgnoreCase(terminationStatusValue)) {
+                    } else if ("OK".equalsIgnoreCase(terminationStatusValue)) {
+                        return transformResultToString(record);
+                    } else {
                         throw new UnexpectedTypeException("terminationStatus is of unexpected value " + terminationStatusValue);
                     }
-                    return transformResultToString(record);
                 } else {
                     throw new UnexpectedTypeException("Result of import has " + list.size() + " elements");
                 }
@@ -263,12 +261,10 @@ public class ProjectExportService {
     }
 
     private String transformResultToString(final Record r) {
-        StringBuilder sb = new StringBuilder("<ul>");
-        sb.append("<li>terminationStatus:").append(r.get("terminationStatus")).append("</li>");
-        sb.append("<li>triplesLoaded:").append(r.get("triplesLoaded")).append("</li>");
-        sb.append("<li>triplesParsed:").append(r.get("triplesParsed")).append("</li>");
-        sb.append("</ul>");
-        return sb.toString();
+        return "<ul>" + "<li>terminationStatus:" + r.get("terminationStatus") + "</li>" +
+                "<li>triplesLoaded:" + r.get("triplesLoaded") + "</li>" +
+                "<li>triplesParsed:" + r.get("triplesParsed") + "</li>" +
+                "</ul>";
     }
 
     private boolean doesGraphConfigExist(Session session) {
