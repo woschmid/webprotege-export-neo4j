@@ -24,6 +24,11 @@ services:
     environment:
       NEO4J_AUTH: neo4j/test
       NEO4JLABS_PLUGINS: '["n10s"]'
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 32G
 
   webprotege:
     container_name: webprotege
@@ -37,4 +42,9 @@ services:
     - ./.protegedata/protege:/srv/webprotege
     ports:
       - 5000:8080
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 32G
 
