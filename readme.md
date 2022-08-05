@@ -41,9 +41,9 @@ To build WebProtégé from source
    git clone https://github.com/woschmid/webprotege-export-neo4j.git
    ```
 2) Open a terminal in the directory where you clone the repository to
-3) Use maven to package WebProtégé
+3) Use maven to package WebProtégé - skip the tests because they tend to fail because of date problems in some of the tests
    ```
-   mvn clean package
+   mvn clean package -DskipTests
    ```
 4) The WebProtege .war file will be built into the webprotege-server directory
 
