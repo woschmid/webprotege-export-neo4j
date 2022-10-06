@@ -14,6 +14,7 @@ import edu.stanford.bmir.protege.web.shared.user.UserId;
 import org.neo4j.driver.*;
 import org.neo4j.driver.internal.value.NullValue;
 import org.neo4j.driver.util.Pair;
+import org.semanticweb.owlapi.model.OWLOntologyCreationException;
 import org.semanticweb.owlapi.model.OWLOntologyStorageException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,7 +42,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class ProjectExportService {
 
     /** The host of neo4j (either localhost or a docker name) */
-    final static String NEO4JHOST = "neo4j"; //*/"localhost";
+    final static String NEO4JHOST = /*"neo4j"; //*/"localhost";
 
     /** The port number of the neo4j host */
     final static int NEO4JPORT = 7687;
@@ -51,9 +52,11 @@ public class ProjectExportService {
     final static String NEO4JPASS = "test";
 
     /** The host of webprotege (either localhost or a docker name) */
-    final static String WEBPROTEGEHOST = "webprotege"; //*/"localhost";
+    final static String WEBPROTEGEHOST = /*"webprotege"; //*/"localhost";
 
     final static int WEBPROTEGEPORT = 8080;
+
+    final static String IMPORTTYPE = "onto"; //*/"rdf"
 
     private static final Logger logger = LoggerFactory.getLogger(ProjectExportService.class);
 
@@ -149,7 +152,7 @@ public class ProjectExportService {
             } catch (FileNotFoundException e) {
                 logger.info("The file {} in {} was not found of this project was interrupted.", projectId, requester);
                 throw new RuntimeException(e);
-            } catch (IOException | OWLOntologyStorageException e) {
+            } catch (IOException | OWLOntologyStorageException | OWLOntologyCreationException e) {
                 throw new RuntimeException(e);
             }
         }
@@ -205,7 +208,8 @@ public class ProjectExportService {
             // Importing the ontology from the exported file
             final String serializationFormat = downloadFormat.getDownloadFormatExtension().getDisplayName();
             final String transactionResult04 = session.writeTransaction(tx -> {
-                Result result = tx.run("CALL n10s.rdf.import.fetch(\"http://" + WEBPROTEGEHOST + ":" + WEBPROTEGEPORT + "/" + filename + "\",\"" + serializationFormat + "\");");
+                final String query = "CALL n10s." + IMPORTTYPE + ".import.fetch(\"http://" + WEBPROTEGEHOST + ":" + WEBPROTEGEPORT + "/" + filename + "\",\"" + serializationFormat + "\");";
+                Result result = tx.run(query);
                 final List<Record> list = result.list();
                 if (list.size() == 1) {
                     Record record = list.get(0);
