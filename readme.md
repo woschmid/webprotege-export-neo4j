@@ -47,8 +47,10 @@ To build WebProtégé from source
    ```
 4) The WebProtege .war file will be built into the webprotege-server directory
 
-Building Docker container
+Building Docker image
 -------------------------
+
+Go into the root directory of your cloned webprogete-export-neo4j folder where you can find the _Dockerfile_.
 
 The following command creates a local docker image instance with the name webprotege-export-neo4j which then can be used
 to run from Docker (next section). This build process requires 10 - 30 minutes!
@@ -57,28 +59,46 @@ to run from Docker (next section). This build process requires 10 - 30 minutes!
    docker build -t webprotege-export-neo4j --build-arg WEBPROTEGE_VERSION=5.0.0-SNAPSHOT .
    ```
 
-Running from Docker
+webprotege is called _webprotege_ and the host for neo4j is called _neo4j_ (defined in _edu.stanford.bmir.protege.web.server.export.ProjectExportService.java_)
+
+Running from Docker using docker-compose
 -------------------
 
-To run WebProtégé using Docker containers:
+**Requirement**: A Docker image called webprotege-export-neo4j exists (see Buiding Docker image if not yet created).
+
+Change directory into the directory where the docker-compose.yml is.
+
+**Note**: The volume folders .neo4j and .protegedata will be created in the current directory where the docker-compose
+command is being execuded. 
+
+To run WebProtégé and Neo4j using docker-compose:
 
 1. Enter this following command in the Terminal to start the docker container in the background
 
    ```bash
    docker-compose up -d
    ```
+2. Check with 
+   ```bash
+   docker stats
+   ```
+   or with Docker Desktop (Windows) if the 3 containers (webproetege-mongodb, neo4j and webprotege) are running
 
-2. Create the admin user (follow the questions prompted to provider username, email and password)
+3. **Only necessary once**: Create the admin user (follow the questions prompted to provider username, email and password)
 
    ```bash
    docker exec -it webprotege java -jar /webprotege-cli.jar create-admin-account
    ```
 
-3. Browse to WebProtégé Settings page in a Web browser by navigating to [http://localhost:5000/#application/settings](http://localhost:5000/#application/settings)
-   1. Define the `System notification email address` and `application host URL`
-   2. Enable `User creation`, `Project creation` and `Project import`
+4. **Only necessary once**: Browse to WebProtégé Settings page in a Web browser by navigating to [http://localhost:5000/#application/settings](http://localhost:5000/#application/settings)
+   1. Login as admin user (step 3.)
+   2. Define the `System notification email address` and `application host URL`
+   3. Enable `User creation`, `Project creation` and `Project import`
+   4. Reload Browser
 
-To stop WebProtégé and MongoDB:
+5. Open Browser
+
+To stop WebProtégé, Neo4j and MongoDB:
 
    ```bash
    docker-compose down
@@ -92,8 +112,15 @@ Sharing the volumes used by the WebProtégé app and MongoDB allow to keep persi
 > Path to the shared volumes can be changed in the `docker-compose.yml` file.
 
 
+6. Open Neo4j Browser in [http://localhost:7474/browser/](http://localhost:7474/browser/) and login with username/password neo4j/test
+
+
 Running from Maven
 ------------------
+
+Alternatively WebProtege and Neo4j can be run without Docker too.
+
+Compile the source code first (see Building).
 
 To run WebProtégé in SuperDev Mode using maven
 
@@ -106,3 +133,4 @@ To run WebProtégé in SuperDev Mode using maven
     mvn -Denv=dev tomcat7:run
     ```
 3) Browse to WebProtégé in a Web browser by navigating to [http://localhost:8080](http://localhost:8080)
+4) Start Neo4J separately from your desktop application

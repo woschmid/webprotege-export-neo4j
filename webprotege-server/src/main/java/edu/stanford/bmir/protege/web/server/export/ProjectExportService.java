@@ -42,7 +42,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class ProjectExportService {
 
     /** The host of neo4j (either localhost or a docker name) */
-    final static String NEO4JHOST = /*"neo4j"; //*/"localhost";
+    final static String NEO4JHOST = "neo4j"; //*/"localhost";
 
     /** The port number of the neo4j host */
     final static int NEO4JPORT = 7687;
@@ -52,7 +52,7 @@ public class ProjectExportService {
     final static String NEO4JPASS = "test";
 
     /** The host of webprotege (either localhost or a docker name) */
-    final static String WEBPROTEGEHOST = /*"webprotege"; //*/"localhost";
+    final static String WEBPROTEGEHOST = "webprotege"; //*/"localhost";
 
     final static int WEBPROTEGEPORT = 8080;
 
