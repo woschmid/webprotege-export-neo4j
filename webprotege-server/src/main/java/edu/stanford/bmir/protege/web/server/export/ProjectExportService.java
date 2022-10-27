@@ -175,7 +175,7 @@ public class ProjectExportService {
         sb.append("<body>\n");
         try {
             Session session = driver.session();
-/*
+
             // first delete everything
             final String transactionResult01 = session.writeTransaction(tx -> {
                 Result result = tx.run("MATCH (n) DETACH DELETE n");
@@ -204,7 +204,7 @@ public class ProjectExportService {
                 logger.info("doesGraphConfigExist() -> {}", transactionResult03);
                 sb.append("<p>").append("Setting the configuration of the graph: ").append(transactionResult03).append("<p/>");
             }
-*/
+
             // Importing the ontology from the exported file
             final String serializationFormat = downloadFormat.getDownloadFormatExtension().getDisplayName();
             final String transactionResult04 = session.writeTransaction(tx -> {
