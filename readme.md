@@ -47,31 +47,33 @@ To build WebProtégé from source
    ```
 4) The WebProtege .war file will be built into the webprotege-server directory
 
-Building Docker image
+Building a Docker image
 -------------------------
 
-Go into the root directory of your cloned webprogete-export-neo4j folder where you can find the _Dockerfile_.
+Open a terminal in the root directory of your cloned webprogete-export-neo4j folder where you will find the _Dockerfile_.
 
-The following command creates a local docker image instance with the name webprotege-export-neo4j which then can be used
-to run from Docker (next section). This build process requires 10 - 30 minutes!
+The following command creates a local docker image instance called _webprotege-export-neo4j_ which then can be used
+to run from Docker (next section). **Note**: the building process requires 10 - 30 minutes!
 
    ```bash
    docker build -t webprotege-export-neo4j --build-arg WEBPROTEGE_VERSION=5.0.0-SNAPSHOT .
    ```
 
-webprotege is called _webprotege_ and the host for neo4j is called _neo4j_ (defined in _edu.stanford.bmir.protege.web.server.export.ProjectExportService.java_)
+By default, the host for webprotege is named _webprotege_ and the host for neo4j is named _neo4j_ 
+(defined in the _docker-compose.yml_ and in _edu.stanford.bmir.protege.web.server.export.ProjectExportService.java_)
 
 Running from Docker using docker-compose
 -------------------
 
-**Requirement**: A Docker image called webprotege-export-neo4j exists (see Buiding Docker image if not yet created).
+**Requirement**: A local Docker image called _webprotege-export-neo4j_ already exists (see the previous section
+Buiding a Docker image if not yet created).
 
-Change directory into the directory where the docker-compose.yml is.
+Open a terminal in the directory where _docker-compose.yml_ is.
 
 **Note**: The volume folders .neo4j and .protegedata will be created in the current directory where the docker-compose
-command is being execuded. 
+command will be execuded. 
 
-To run WebProtégé and Neo4j using docker-compose:
+#### Start WebProtégé, Neo4j and MongoDB using docker-compose:
 
 1. Enter this following command in the Terminal to start the docker container in the background
 
@@ -96,13 +98,17 @@ To run WebProtégé and Neo4j using docker-compose:
    3. Enable `User creation`, `Project creation` and `Project import`
    4. Reload Browser
 
-5. Open Browser
+5. Login into **WebProtege** by navigating to http://localhost:5000/ and login with admin user
 
-To stop WebProtégé, Neo4j and MongoDB:
+6. Open **Neo4j Browser** in [http://localhost:7474/browser/](http://localhost:7474/browser/) and login with 
+username/password neo4j/test (can be changed in docker-compose.yml)
+
+#### Stop WebProtégé, Neo4j and MongoDB:
 
    ```bash
    docker-compose down
    ```
+#### Additional infos
 
 Sharing the volumes used by the WebProtégé app and MongoDB allow to keep persistent data, even when the containers stop. Default shared data storage:
 
@@ -110,10 +116,6 @@ Sharing the volumes used by the WebProtégé app and MongoDB allow to keep persi
 * MongoDB will store its data in the source code folder at `./.protegedata/mongodb` where you run `docker-compose`
 
 > Path to the shared volumes can be changed in the `docker-compose.yml` file.
-
-
-6. Open Neo4j Browser in [http://localhost:7474/browser/](http://localhost:7474/browser/) and login with username/password neo4j/test
-
 
 Running from Maven
 ------------------

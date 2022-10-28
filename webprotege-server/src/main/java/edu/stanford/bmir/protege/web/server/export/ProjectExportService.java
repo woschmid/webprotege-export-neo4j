@@ -3,7 +3,7 @@ package edu.stanford.bmir.protege.web.server.export;
 import com.google.common.util.concurrent.Striped;
 import edu.stanford.bmir.protege.web.server.download.DownloadFormat;
 import edu.stanford.bmir.protege.web.server.download.FileTransferExecutor;
-import edu.stanford.bmir.protege.web.server.download.ProjectDownloadCache;
+//import edu.stanford.bmir.protege.web.server.download.ProjectDownloadCache;
 import edu.stanford.bmir.protege.web.server.project.ProjectDetailsManager;
 import edu.stanford.bmir.protege.web.server.project.ProjectManager;
 import edu.stanford.bmir.protege.web.server.revision.HeadRevisionNumberFinder;
@@ -12,6 +12,7 @@ import edu.stanford.bmir.protege.web.shared.project.ProjectId;
 import edu.stanford.bmir.protege.web.shared.revision.RevisionNumber;
 import edu.stanford.bmir.protege.web.shared.user.UserId;
 import org.neo4j.driver.*;
+import org.neo4j.driver.Record;
 import org.neo4j.driver.internal.value.NullValue;
 import org.neo4j.driver.util.Pair;
 import org.semanticweb.owlapi.model.OWLOntologyCreationException;
@@ -69,8 +70,8 @@ public class ProjectExportService {
     @Nonnull
     private final ProjectDetailsManager projectDetailsManager;
 
-    @Nonnull
-    private final ProjectDownloadCache projectDownloadCache;
+    //@Nonnull
+    //private final ProjectDownloadCache projectDownloadCache;
 
     @Nonnull
     private final HeadRevisionNumberFinder headRevisionNumberFinder;
@@ -88,13 +89,13 @@ public class ProjectExportService {
                                 @Nonnull @FileTransferExecutor ExecutorService fileTransferExecutor,
                                 @Nonnull ProjectDetailsManager projectDetailsManager,
                                 @Nonnull ProjectManager projectManager,
-                                @Nonnull ProjectDownloadCache projectDownloadCache,
+                                //@Nonnull ProjectDownloadCache projectDownloadCache,
                                 @Nonnull HeadRevisionNumberFinder headRevisionNumberFinder,
                                 @Nonnull ProjectExporterFactory projectExporterFactory) {
         this.exportGeneratorExecutor = checkNotNull(exportGeneratorExecutor);
         this.fileTransferExecutor = checkNotNull(fileTransferExecutor);
         this.projectDetailsManager = checkNotNull(projectDetailsManager);
-        this.projectDownloadCache = checkNotNull(projectDownloadCache);
+        //this.projectDownloadCache = checkNotNull(projectDownloadCache);
         this.headRevisionNumberFinder = checkNotNull(headRevisionNumberFinder);
         this.projectExporterFactory = checkNotNull(projectExporterFactory);
         this.projectManager = checkNotNull(projectManager);
