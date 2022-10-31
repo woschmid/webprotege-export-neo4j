@@ -117,22 +117,47 @@ Sharing the volumes used by the WebProtégé app and MongoDB allow to keep persi
 
 > Path to the shared volumes can be changed in the `docker-compose.yml` file.
 
-Running from Maven
+Running from Maven (localhost)
 ------------------
 
-Alternatively WebProtege and Neo4j can be run without Docker too.
+0) By default the installation is set up for Docker.
+But as an alternatively WebProtege (this instance), Neo4j (desktop app) and MongoDB (desktop app) can be run on locally without Docker too.
+This however requires some preparation and a modification in the source code. 
 
-Compile the source code first (see Building).
+1) Neo4J is to be run separately as Desktop app and requires the manual installation of the NeoSemantics plugin. 
+Check the online documentation for Neo4J and NeoSemantics.
 
-To run WebProtégé in SuperDev Mode using maven
+2) Also install and run a local instance of MongoDB
 
-1) Start the GWT code server in one terminal window
+3) WebProtege requieres an adaption in the source code and a recompilation: 
+- Change the variables `NEO4JHOST` and `WEBPROTEGEHOST` in the class `edu.stanford.bmir.protege.web.server.export.ProjectExportService` 
+to `localhost` and then recompile the source code (see Building).
+
+4) Set up the necessary requirements for WebProtege as described in [https://github.com/protegeproject/webprotege/wiki/WebProt%C3%A9g%C3%A9-4.0.0-Installation](the installation instructions)
+In short:
+   - **JAVA 11**
+   - WebProtégé requires a directory, that we call the data directory to store its data in. Create the data directory on your system. We recommend you use the standard location, `/srv/webprotege`. On a Windows system this corresponds to `C:\srv\webprotege`
+   - Create the directory to hold the WebProtégé configuration files. On Linux/Unix/MacOS this should be `/etc/webprotege`. On Windows this should be `C:\ProgramData\WebProtege` (note that the ProgramData directory is a hidden directory).
+   - Create a copy of the [https://github.com/protegeproject/webprotege/blob/master/webprotege-server-core/src/main/resources/webprotege.properties](webprotege.properties) file inside this configuration directory.
+   - In the webprotege.properties file you should adjust the various properties as appropriate for your installation. In particular, you should ensure that the data.directory property is set to point to the WebProtégé data directory for your installation. For example, on Linux/Unix/MacOS,
+`data.directory=/srv/webprotege` or on Windows, `data.directory=C:\\srv\\webprotege`
+   - Create a copy of the mail.properties [https://github.com/protegeproject/webprotege/blob/master/webprotege-server-core/src/main/resources/mail.properties] 
+
+5) Start the GWT code server in one terminal window
     ```
     mvn gwt:codeserver
     ```
-2) In a different terminal window start the tomcat server
+6) In a different terminal window start the tomcat server
     ```
     mvn -Denv=dev tomcat7:run
     ```
-3) Browse to WebProtégé in a Web browser by navigating to [http://localhost:8080](http://localhost:8080)
-4) Start Neo4J separately from your desktop application
+7) Bootstrap WebProtégé with an Admin Account (see https://github.com/protegeproject/webprotege/wiki/WebProt%C3%A9g%C3%A9-4.0.0-Installation)
+**HINT**: The client jar is located in the `webprotege-cli` target folder after a successful compilation, therefore just enter the following command into the terminal there: `java -jar webprotege-cli-5.0.0-SNAPSHOT.jar create-admin-account`
+8) Browse to WebProtégé in a Web browser by navigating to [http://localhost:8080](http://localhost:8080)
+9) Sign in with the admin account created before
+10) If you get the Error message "WebProtégé is not configured properly" navigate to [http://localhost:8080/#application/settings] and
+    1)  Specify all required settings such as Application name, Email Address, Scheme (http), Host (localhost) as well as Permission settings. Apply your Settings and the warning should disappear.
+11) Start Neo4J separately with your local desktop application
+    1) Note that Neo4J version has to support the Neosemantics (n10s) plugin. Last working version at the time of writing this is 4.4.12. No support of this plugin in version 5 yet.
+    2) Create a new DB with 4.4.12 and password `test` (see `NEO4JUSER` and `NEO4JPASS` in class `edu.stanford.bmir.protege.web.server.export.ProjectExportService`)
+12) Import an ONTIS ontology and export the ontology into neo4j the projects overview (Export to Neo4j... )
