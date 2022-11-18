@@ -9,7 +9,7 @@ WORKDIR /webprotege
 
 RUN mkdir -p /data/db \
     && mongod --fork --syslog \
-    && mvn clean package
+    && mvn clean package -DskipTests
 
 FROM tomcat:8-jre11-slim
 

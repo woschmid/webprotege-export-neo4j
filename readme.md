@@ -71,7 +71,7 @@ Buiding a Docker image if not yet created).
 Open a terminal in the directory where _docker-compose.yml_ is.
 
 **Note**: The volume folders .neo4j and .protegedata will be created in the current directory where the docker-compose
-command will be execuded. 
+command will be executed. 
 
 #### Start WebProtégé, Neo4j and MongoDB using docker-compose:
 
