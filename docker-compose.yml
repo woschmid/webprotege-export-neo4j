@@ -2,6 +2,33 @@ version: "3"
 
 services:
 
+  zookeeper:
+    image: docker.io/bitnami/zookeeper:3.8
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    volumes:
+      - "zookeeper_data:/bitnami"
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+  kafka:
+    image: docker.io/bitnami/kafka:3.1
+    container_name: kafka
+    ports:
+      - "9093:9093"
+    volumes:
+      - "./.kafka/data:/bitnami"
+    user: "${UID}:${GID}"
+    environment:
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CLIENT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      - KAFKA_CFG_LISTENERS=CLIENT://:9092,EXTERNAL://0.0.0.0:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=CLIENT://kafka:9092,EXTERNAL://localhost:9093 # change EXTERNAL from localhost to a domain, if necessary
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=CLIENT
+    depends_on:
+      - zookeeper
+
   wpmongo:
     container_name: webprotege-mongodb
     image: mongo:4.1-bionic
@@ -48,3 +75,9 @@ services:
           cpus: '1'
           memory: 32G
 
+
+volumes:
+  zookeeper_data:
+    driver: local
+  kafka_data:
+    driver: local
