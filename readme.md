@@ -41,7 +41,7 @@ Build a Docker image for WebProtégé
    ```
    git clone https://github.com/woschmid/webprotege-export-neo4j.git
    ```
-2) Open a terminal and change into the cloned webprogete-export-neo4j folder where you will find the _Dockerfile_.
+2) Change into the cloned folder `webprogete-export-neo4j` where you will find the _Dockerfile_.
    ```
    cd webprotege-export-neo4j
    ```
