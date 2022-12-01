@@ -1,11 +1,12 @@
-WebProtégé
+WebProtégé (with an export feature for Neo4J)
 ==========
 
 PLEASE NOTE
 ===========
 
-**This repository is in the process of being superceded** with a collection of other, more fine-grained, [repositories](https://github.com/search?q=topic%3Awebprotege+org%3Aprotegeproject&type=Repositories). We are moving WebProtégé to a microservice architecture and each microservice and each common library now has its own repository.  While this repository still serves as the repository for the current WebProtégé release, all active development is now taking place in these repositories.  You can read more about this on the [WebProtégé Next Gen Wiki](https://github.com/protegeproject/webprotege-next-gen/wiki/WebProtégé-Next-Generation-Overview).
+**This webprotege clone is an adaption for ONTIS**
 
+This readme has been adapted for this project.
 
 What is WebProtégé?
 -------------------
@@ -31,28 +32,20 @@ please follow the instructions at:
 
 https://github.com/protegeproject/webprotege/wiki/WebProtégé-4.0.0-beta-x-Installation
 
-Building
---------
+Build a Docker image for WebProtégé
+-------------------------
 
-To build WebProtégé from source
+**Minimal Requirements:** 8GB RAM, ~15GB free disk space, Docker v20
 
-1) Clone the github repository
+1) Clone the repository
    ```
    git clone https://github.com/woschmid/webprotege-export-neo4j.git
    ```
-2) Open a terminal in the directory where you clone the repository to
-3) Use maven to package WebProtégé - skip the tests because they tend to fail because of date problems in some of the tests
+2) Open a terminal and change into the cloned webprogete-export-neo4j folder where you will find the _Dockerfile_.
    ```
-   mvn clean package -DskipTests
+   cd webprotege-export-neo4j
    ```
-4) The WebProtege .war file will be built into the webprotege-server directory
-
-Building a Docker image
--------------------------
-
-Open a terminal in the root directory of your cloned webprogete-export-neo4j folder where you will find the _Dockerfile_.
-
-The following command creates a local docker image instance called _webprotege-export-neo4j_ which then can be used
+3) The next command creates a local docker image called _webprotege-export-neo4j_ which then can be used
 to run from Docker (next section). **Note**: the building process requires 10 - 30 minutes!
 
    ```bash
@@ -62,48 +55,61 @@ to run from Docker (next section). **Note**: the building process requires 10 - 
 By default, the host for webprotege is named _webprotege_ and the host for neo4j is named _neo4j_ 
 (defined in the _docker-compose.yml_ and in _edu.stanford.bmir.protege.web.server.export.ProjectExportService.java_)
 
-Running from Docker using docker-compose
+Run WebProtégé from Docker
 -------------------
 
-**Requirement**: A local Docker image called _webprotege-export-neo4j_ already exists (see the previous section
-Buiding a Docker image if not yet created).
+**Requirement**: A local Docker image called _webprotege-export-neo4j_ exists (see the previous section).
 
-Open a terminal in the directory where _docker-compose.yml_ is.
+#### Start WebProtégé, Neo4j, MongoDB, Kafka and Zookeeper:
 
-**Note**: The volume folders .neo4j and .protegedata will be created in the current directory where the docker-compose
-command will be executed. 
+1. Open a terminal and change into in the root directory of your cloned webprotege-export-neo4j folder in the directory where _docker-compose.yml_ is if not already done.
+   ```
+   cd webprotege-export-neo4j
+   ```
+**Note**: The volume folders .kafka, .neo4j and .protegedata will be created in the current directory. **These folders will
+have root:root file permissions in Linux!**
 
-#### Start WebProtégé, Neo4j and MongoDB using docker-compose:
+   **Note**: If you deploy on a public host where Kafka shall be accessed from outside, adapt the _KAFKA_CFG_ADVERTISED_LISTENERS_ environment variable
+according to the comment in _docker-compose.yml_
 
-1. Enter this following command in the Terminal to start the docker container in the background
+2. Enter the following command in the terminal to start the docker container in the background
 
    ```bash
    docker-compose up -d
    ```
-2. Check with 
+3. Check if all containers are running with 
    ```bash
    docker stats
    ```
-   or with Docker Desktop (Windows) if the 3 containers (webproetege-mongodb, neo4j and webprotege) are running
+   (exit with CTRL+C)
+   
+   **Note** These 5 containers are expected to be running: `webprotege`, `neo4j`, `webprotege-mongodb`, `kafka`, `zookeeper`.
+   If one container is not running you can search for error messages in the logs of the container with 
+   ```bash
+   docker logs <containername>
+   ```
 
-3. **Only necessary once**: Create the admin user (follow the questions prompted to provider username, email and password)
+4. **Only necessary once**: In WebProtege we need to create an **admin account** with:
 
    ```bash
    docker exec -it webprotege java -jar /webprotege-cli.jar create-admin-account
    ```
+   Follow the questions prompted to provide username, email, password.
 
-4. **Only necessary once**: Browse to WebProtégé Settings page in a Web browser by navigating to [http://localhost:5000/#application/settings](http://localhost:5000/#application/settings)
-   1. Login as admin user (step 3.)
+5. **Only necessary once**: Next, we must define the **settings** for WebProtégé 
+   
+   Browse to the WebProtégé Settings page in a Web browser by navigating to [http://localhost:5000/#application/settings](http://localhost:5000/#application/settings) (replace localhost with a servername if necessary)
+   1. Login with the admin account
    2. Define the `System notification email address` and `application host URL`
    3. Enable `User creation`, `Project creation` and `Project import`
-   4. Reload Browser
+   4. Reload the browser and log out
+   5. Now you should be able to "Sign up for account" on the top right of http://localhost:5000 to create a standard user account. **Note** Sign up account creation can be disabled with the admin account (see above). 
 
-5. Login into **WebProtege** by navigating to http://localhost:5000/ and login with admin user
+6. Login into **WebProtege** at http://localhost:5000/ and login with a standard user to upload and export your ontology. 
 
-6. Open **Neo4j Browser** in [http://localhost:7474/browser/](http://localhost:7474/browser/) and login with 
-username/password neo4j/test (can be changed in docker-compose.yml)
+7. You can open the **Neo4j Browser** at [http://localhost:7474/](http://localhost:7474/) and login with neo4j/test
 
-#### Stop WebProtégé, Neo4j and MongoDB:
+#### Stop WebProtégé, Neo4j, MongoDB, Kafka and Zookeeper:
 
    ```bash
    docker-compose down
@@ -112,17 +118,39 @@ username/password neo4j/test (can be changed in docker-compose.yml)
 
 Sharing the volumes used by the WebProtégé app and MongoDB allow to keep persistent data, even when the containers stop. Default shared data storage:
 
-* WebProtégé will store its data in the source code folder at `./.protegedata/protege` where you run `docker-compose`
-* MongoDB will store its data in the source code folder at `./.protegedata/mongodb` where you run `docker-compose`
+* WebProtégé will store its data in the folder at `./.protegedata/protege` where you run `docker-compose`
+* MongoDB will store its data in the folder at `./.protegedata/mongodb` where you run `docker-compose`
+* Kafka will store its data in the folder `./.kafka/data` where you run `docker-compose`
 
 > Path to the shared volumes can be changed in the `docker-compose.yml` file.
 
-Running from Maven (localhost)
-------------------
+> If the data volumes are deleted, steps 4. and 5. need to be done again 
+
+----------------------------------------------------------------
+----------------------------------------------------------------
+
+This following is an alternative description of how to compile and start WebProtege without Docker
+
+Building (Alternative solution without Docker)
+--------
 
 0) By default the installation is set up for Docker.
-But as an alternatively WebProtege (this instance), Neo4j (desktop app) and MongoDB (desktop app) can be run on locally without Docker too.
-This however requires some preparation and a modification in the source code. 
+   But as an alternatively WebProtege (this instance), Neo4j (desktop app) and MongoDB (desktop app) can be run without Docker too.
+   This however requires some preparation and a modification in the source code.
+
+
+To build WebProtégé from source
+
+1) Clone the github repository (see _Cloning_)
+
+2) Use maven to package WebProtégé - skip the tests because they tend to fail because of date problems in some of the tests
+   ```
+   mvn clean package -DskipTests
+   ```
+3) The WebProtege .war file will be built into the webprotege-server directory
+
+Running Webprotege from Maven (Alternative solution without Docker)
+------------------
 
 1) Neo4J is to be run separately as Desktop app and requires the manual installation of the NeoSemantics plugin. 
 Check the online documentation for Neo4J and NeoSemantics.
