@@ -41,11 +41,11 @@ Build a Docker image for WebProtégé
    ```
    git clone https://github.com/woschmid/webprotege-export-neo4j.git
    ```
-2) Change into the cloned folder `webprogete-export-neo4j` where you will find the _Dockerfile_.
+2) Change into the cloned folder `webprotege-export-neo4j` where you will find the _Dockerfile_.
    ```
    cd webprotege-export-neo4j
    ```
-3) The next command creates a local docker image called _webprotege-export-neo4j_ which then can be used
+3) The next command creates a local docker image named `webprotege-export-neo4j` which then can be used
 to run from Docker (next section). **Note**: the building process requires 10 - 30 minutes!
 
    ```bash
@@ -58,7 +58,7 @@ By default, the host for webprotege is named _webprotege_ and the host for neo4j
 Run WebProtégé from Docker
 -------------------
 
-**Requirement**: A local Docker image called _webprotege-export-neo4j_ exists (see the previous section).
+**Requirement**: A local Docker image named `webprotege-export-neo4j` exists (see the previous section).
 
 #### Start WebProtégé, Neo4j, MongoDB, Kafka and Zookeeper:
 
