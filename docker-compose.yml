@@ -12,13 +12,12 @@ services:
     environment:
       - ALLOW_ANONYMOUS_LOGIN=yes
   kafka:
-    image: docker.io/bitnami/kafka:3.1
+    image: docker.io/bitnami/kafka:3.3
     container_name: kafka
     ports:
       - "9093:9093"
     volumes:
-      - "./.kafka/data:/bitnami"
-#   user: "${UID}:${GID}"
+      - "kafka_data:/bitnami"
     environment:
       - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
       - ALLOW_PLAINTEXT_LISTENER=yes
@@ -41,7 +40,6 @@ services:
     image: neo4j:4.4.12
     ports:
       - '7474:7474'
-#     - '7473:7473'
       - '7687:7687'
     volumes:
       - ./.neo4j/data:/data
